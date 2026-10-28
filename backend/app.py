@@ -1212,6 +1212,12 @@ def create_app(test_config=None):
 
 app = create_app()
 
+@app.route("/health", methods=["GET"])
+def health_check():
+    return jsonify({"status": "healthy"}), 200
+
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
     host = os.getenv("HOST", "127.0.0.1")
