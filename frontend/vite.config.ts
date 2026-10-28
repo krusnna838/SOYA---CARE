@@ -1,15 +1,15 @@
-
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
 
-  // Local development server
+  // Local development only. On Render, the frontend calls the deployed API URL
+  // configured through VITE_API_BASE_URL instead of localhost.
   server: {
-    port: 5173,
     host: '0.0.0.0',
-
+    port: 5173,
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:5000',
@@ -19,11 +19,16 @@ export default defineConfig({
     },
   },
 
-  // Render production preview server
+  // Vite preview is used by the current Render Web Service setup.
   preview: {
     host: '0.0.0.0',
-    port: 4173,
-    allowedHosts: ['soya-care-frontend.onrender.com'],
+    port: 10000,
+    strictPort: false,
+    allowedHosts: ['.onrender.com'],
+  },
+
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
   },
 });
-

@@ -1,7 +1,7 @@
 import type { Disease, DiseaseScan, SupportTicket, User, WeatherData, GovtScheme } from '../types';
 
 // Use relative /api in development (proxied by Vite) or configured VITE_API_BASE_URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 
 const TOKEN_KEY = 'soybeancare_auth_token';
 const USER_KEY = 'soybeancare_user_profile';
@@ -63,23 +63,14 @@ export const api = {
       }
       const errData = await res.json().catch(() => ({}));
       throw new Error(errData.error || 'Invalid email or password.');
-    } catch (e: any) {
-      if (e.message && e.message !== 'Failed to fetch') {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message && e.message !== 'Failed to fetch') {
         throw e;
       }
-      console.warn('Backend API offline, using local session state:', e);
-      const mockUser: User = {
-        id: role === 'ADMIN' ? 'u3' : role === 'EXPERT' ? 'u2' : 'u1',
-        name: role === 'ADMIN' ? 'Admin User' : role === 'EXPERT' ? 'Dr. Ananya Sharma' : 'Rajesh Kumar',
-        email,
-        role: (role as any) || 'FARMER',
-        phone: '+91 9876543210',
-        village: 'AgriPur',
-        district: 'Indore',
-        state: 'Madhya Pradesh',
-        language: 'en'
-      };
-      return { token: 'mock-jwt-token', user: mockUser };
+      console.error('Login request could not reach the backend:', e);
+      throw new Error(
+        `Cannot connect to the backend at ${API_BASE_URL}. Check the Render backend service, VITE_API_BASE_URL, and backend CORS settings.`
+      );
     }
   },
 
@@ -99,20 +90,12 @@ export const api = {
       }
       const errData = await res.json().catch(() => ({}));
       throw new Error(errData.error || 'Registration failed.');
-    } catch (e: any) {
-      if (e.message && e.message !== 'Failed to fetch') throw e;
-      console.warn('Backend API offline, registering locally:', e);
-      const mockUser: User = {
-        id: `u-${Date.now()}`,
-        name: formData.name,
-        email: formData.email,
-        role: formData.role || 'FARMER',
-        phone: formData.phone,
-        village: formData.village,
-        district: formData.district,
-        state: formData.state
-      };
-      return { token: 'mock-jwt-token', user: mockUser };
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message && e.message !== 'Failed to fetch') throw e;
+      console.error('Registration request could not reach the backend:', e);
+      throw new Error(
+        `Cannot connect to the backend at ${API_BASE_URL}. Check the Render backend service, VITE_API_BASE_URL, and backend CORS settings.`
+      );
     }
   },
 
