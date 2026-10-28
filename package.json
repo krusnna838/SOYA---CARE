@@ -1,0 +1,15 @@
+{
+  "name": "soybeancare-ai",
+  "version": "1.0.0",
+  "description": "SoybeanCare AI Premium - Intelligent Soybean Leaf Disease Detection & Farmer Assistance",
+  "scripts": {
+    "dev:backend": "powershell -ExecutionPolicy Bypass -File ./run_backend.ps1",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:frontend": "npm --prefix frontend run build",
+    "test": "powershell -ExecutionPolicy Bypass -File ./run_tests.ps1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
