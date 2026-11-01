@@ -202,3 +202,29 @@ def test_pdf_report_download(client):
     assert pdf_resp.status_code == 200
     assert pdf_resp.mimetype == "application/pdf"
     assert len(pdf_resp.data) > 500
+
+
+# -------------------------------------------------------------
+# 7. DIAGNOSIS DECISION SAFETY TESTS
+# -------------------------------------------------------------
+def test_uncertain_leaf_verification_never_returns_disease_prediction():
+    """A green-looking leaf is not enough to claim soybean species identity."""
+    from services.decision_service import evaluate_final_decision
+
+    result = evaluate_final_decision(
+        {
+            "status": "UNCERTAIN",
+            "reason": "Foliage-like colors detected; species not verified.",
+            "confidence": 0.50,
+            "provider": "local_heuristic",
+        },
+        {
+            "success": True,
+            "predictions": [{"class": "Asian Soybean Rust", "confidence": 0.99}],
+        },
+    )
+
+    assert result["detected"] is False
+    assert result["decision"] == "UNCERTAIN"
+    assert result["disease"] is None
+    assert result["predictions"] == []
