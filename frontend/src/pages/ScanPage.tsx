@@ -11,9 +11,10 @@ interface ScanPageProps {
   user: User | null;
   onOpenReportModal: (scan: DiseaseScan) => void;
   onOpenAuth: () => void;
+  onScanComplete?: () => Promise<void> | void;
 }
 
-export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onOpenAuth }) => {
+export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onOpenAuth, onScanComplete }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<DiseaseScan | null>(null);
@@ -66,6 +67,11 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
     stopCamera();
     const file = e.target.files?.[0];
     if (file) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        setErrorMessage('Please choose a JPG, PNG, or WEBP soybean leaf image.');
+        e.target.value = '';
+        return;
+      }
       if (file.size > 10 * 1024 * 1024) {
         setErrorMessage("Image file is too large. Maximum allowed size is 10 MB.");
         e.target.value = "";
@@ -215,6 +221,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
 
       if (response.scan) {
         setScanResult(response.scan);
+        await onScanComplete?.();
       } else if (response.detected === false) {
         // The backend rejected the image during soybean-leaf verification.
         setScanResult(null);
@@ -383,7 +390,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
                     <label className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all inline-flex items-center justify-center space-x-2">
                       <Upload className="w-4 h-4" />
                       <span>Upload Leaf Photo</span>
-                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileUpload} className="hidden" />
                     </label>
 
                     <button
