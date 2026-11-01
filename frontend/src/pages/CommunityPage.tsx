@@ -7,30 +7,8 @@ interface CommunityPageProps {
 }
 
 export const CommunityPage: React.FC<CommunityPageProps> = ({ user }) => {
-  const [posts, setPosts] = useState([
-    {
-      id: 1,
-      author: 'Ramesh Patel',
-      role: 'Soybean Cultivator (Indore)',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
-      time: '2 hours ago',
-      title: 'Has anyone tried mixing Organic Neem Soap with Quadris for Septoria?',
-      content: 'I have 8 acres under V4 growth stage. Noticed small brown spots. Want to check if combining organic copper with strobilurin gives longer protection.',
-      likes: 14,
-      comments: 6
-    },
-    {
-      id: 2,
-      author: 'Dr. Ananya Sharma',
-      role: 'Senior Phytopathologist',
-      avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80',
-      time: '5 hours ago',
-      title: 'Alert: High Humidity Advisory for Central Soybean Belt',
-      content: 'Relative humidity will exceed 80% over the next 48 hours. Inspect lower canopies twice daily for early signs of Asian Soybean Rust pustules.',
-      likes: 42,
-      comments: 18
-    }
-  ]);
+  // No seeded/demo community posts. The feed stays empty until a real community API is connected.
+  const [posts, setPosts] = useState<any[]>([]);
 
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
@@ -41,7 +19,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ user }) => {
     setPosts([
       {
         id: Date.now(),
-        author: user?.name || 'Rajesh Kumar',
+        author: user?.name || 'Farmer',
         role: 'Soybean Farmer',
         avatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
         time: 'Just now',
@@ -112,7 +90,9 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ user }) => {
 
           {/* Posts Stream */}
           <div className="space-y-4">
-            {posts.map((post) => (
+            {posts.length === 0 ? (
+              <div className="glass-card p-8 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-sm text-slate-500">No community posts are available yet. Demo posts have been removed.</div>
+            ) : posts.map((post) => (
               <div key={post.id} className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
                 <div className="flex items-center space-x-3">
                   <img src={post.avatar} alt={post.author} className="w-10 h-10 rounded-full object-cover border border-emerald-500/40" />
