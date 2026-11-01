@@ -38,7 +38,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   const [gpsError, setGpsError] = useState<string | null>(null);
 
   // State-based Schemes State
-  const [selectedState, setSelectedState] = useState<string>(user.state || 'Madhya Pradesh');
+  const [selectedState, setSelectedState] = useState<string>(user.state || '');
   const [schemesList, setSchemesList] = useState<GovtScheme[]>(initialSchemes);
   const [loadingSchemes, setLoadingSchemes] = useState(false);
 
@@ -103,7 +103,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
         <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <img
-              src={user.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"}
+              src={user.avatar || "https://ui-avatars.com/api/?name=" + encodeURIComponent(user.name) + "&background=065f46&color=fff"}
               alt={user.name}
               className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-400 shadow-md"
             />
@@ -122,7 +122,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
               <p className="text-xs text-emerald-200 flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span>
-                  {[user.village, user.district, user.state].filter(Boolean).join(', ') || 'Central Agronomy Belt'}
+                  {[user.village, user.district, user.state].filter(Boolean).join(', ') || 'Location not provided'}
                 </span>
               </p>
               <div className="flex flex-wrap gap-2 text-[11px] text-emerald-100/80 pt-1">
@@ -357,6 +357,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
                 onChange={(e) => setSelectedState(e.target.value)}
                 className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none"
               >
+                <option value="">Select your state</option>
                 <option value="Madhya Pradesh">Madhya Pradesh</option>
                 <option value="Maharashtra">Maharashtra</option>
                 <option value="Rajasthan">Rajasthan</option>
@@ -370,7 +371,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
               {loadingSchemes ? (
                 <div className="p-8 text-center text-xs text-slate-400">Loading verified government schemes...</div>
               ) : schemesList.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-400">No schemes found for this selection.</div>
+                <div className="p-6 text-center text-xs text-slate-400">No verified scheme records are currently available from the backend.</div>
               ) : (
                 schemesList.map((s) => (
                   <div 
