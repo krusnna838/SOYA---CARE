@@ -235,13 +235,10 @@ def create_app(test_config=None):
         if not user.get("password_hash") or not check_password_hash(user["password_hash"], password):
             return jsonify({"error": "Invalid email or password."}), 401
 
-        requested_role = str(data.get("role", "")).strip().upper()
-        actual_role = str(user.get("role", "FARMER")).strip().upper()
-        if requested_role in {"FARMER", "EXPERT", "ADMIN"} and requested_role != actual_role:
-            return jsonify({
-                "error": f"This account is registered as {actual_role}. Select the correct account type or contact the administrator."
-            }), 403
-
+        # The database role is authoritative. Older deployed frontends may send
+        # a default role (for example FARMER) even for administrator accounts.
+        # Authenticate the valid account and return its actual role instead of
+        # blocking login based on a stale client-side role selection.
         token = create_access_token(identity=str(user["id"]))
         log_audit("user_login", f"User {email} logged in", user_id=user["id"])
 
