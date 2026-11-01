@@ -434,6 +434,32 @@ export const api = {
     return await res.json();
   },
 
+  async getPendingExpertApplications(): Promise<User[]> {
+    const res = await fetchWithAuth(`${API_BASE_URL}/admin/expert-applications`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Could not retrieve expert applications.');
+    }
+    const data = await res.json();
+    return data.applications || [];
+  },
+
+  async approveExpertApplication(userId: number | string): Promise<any> {
+    const cleanId = String(userId).replace(/^u/, '');
+    const res = await fetchWithAuth(`${API_BASE_URL}/admin/expert-applications/${cleanId}/approve`, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not approve expert application.');
+    return data;
+  },
+
+  async rejectExpertApplication(userId: number | string): Promise<any> {
+    const cleanId = String(userId).replace(/^u/, '');
+    const res = await fetchWithAuth(`${API_BASE_URL}/admin/expert-applications/${cleanId}/reject`, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not reject expert application.');
+    return data;
+  },
+
   async getAdminUsers(searchQuery?: string): Promise<User[]> {
     const q = searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : '';
     const res = await fetchWithAuth(`${API_BASE_URL}/admin/users${q}`);

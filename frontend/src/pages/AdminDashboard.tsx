@@ -13,10 +13,13 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'predictions' | 'map' | 'users' | 'tickets' | 'model' | 'audit'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'predictions' | 'map' | 'users' | 'tickets' | 'model' | 'audit' | 'tracking'>('analytics');
   const [loading, setLoading] = useState(true);
   const [summaryData, setSummaryData] = useState<any | null>(null);
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [allUsersForTracking, setAllUsersForTracking] = useState<any[]>([]);
+  const [pendingExperts, setPendingExperts] = useState<any[]>([]);
+  const [processingExpertId, setProcessingExpertId] = useState<string | null>(null);
   const [ticketsList, setTicketsList] = useState<SupportTicket[]>([]);
   const [ticketSearch, setTicketSearch] = useState('');
   const [ticketStatusFilter, setTicketStatusFilter] = useState<'All' | 'Open' | 'In Progress' | 'Resolved'>('All');
@@ -27,43 +30,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [allScans, setAllScans] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [selectedMapPoint, setSelectedMapPoint] = useState<any | null>(null);
+  const [trackingSearch, setTrackingSearch] = useState('');
+  const [trackingType, setTrackingType] = useState('All');
 
   const loadAdminData = async () => {
     setLoading(true);
-    try {
-      const summary = await api.getAdminSummary();
-      setSummaryData(summary);
-
-      const users = await api.getAdminUsers(searchQuery);
-      setUsersList(users);
-
-      const scans = await api.getScans();
-      setAllScans(scans);
-
-      const points = await api.getMapReports();
-      setMapPoints(points);
-
-      const logs = await api.getAdminAuditLogs();
-      setAuditLogs(logs);
-
-      const tickets = await api.getTickets();
-      setTicketsList(tickets);
-    } catch (err) {
-      console.warn("Could not load complete admin data from backend:", err);
-      setSummaryData(null);
-      setUsersList([]);
-      setMapPoints([]);
-      setAllScans([]);
-      setAuditLogs([]);
-      setTicketsList([]);
-      alert("Admin data could not be loaded. Check backend availability and your admin permissions.");
-    } finally {
-      setLoading(false);
-    }
+    // Load each panel independently. A failure in optional analytics, map, or
+    // ticket endpoints must never hide the user directory or expert requests.
+    const tasks = [
+      api.getAdminSummary().then(setSummaryData).catch((err) => console.warn('Admin summary unavailable:', err)),
+      api.getAdminUsers(searchQuery).then(setUsersList).catch((err) => console.warn('Admin users unavailable:', err)),
+      api.getAdminUsers().then(setAllUsersForTracking).catch((err) => console.warn('Tracking user list unavailable:', err)),
+      api.getPendingExpertApplications().then(setPendingExperts).catch((err) => console.warn('Expert applications unavailable:', err)),
+      api.getScans().then(setAllScans).catch((err) => console.warn('Admin scans unavailable:', err)),
+      api.getMapReports().then(setMapPoints).catch((err) => console.warn('Admin map unavailable:', err)),
+      api.getAdminAuditLogs().then(setAuditLogs).catch((err) => console.warn('Admin audit logs unavailable:', err)),
+      api.getTickets().then(setTicketsList).catch((err) => console.warn('Admin tickets unavailable:', err)),
+    ];
+    await Promise.all(tasks);
+    setLoading(false);
   };
 
   useEffect(() => {
-    loadAdminData();
+    void loadAdminData();
   }, [searchQuery]);
 
   const handleRoleChange = async (userId: string | number, newRole: string) => {
@@ -73,6 +62,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       alert(`User role successfully changed to ${newRole}.`);
     } catch (e: any) {
       alert("Role update failed: " + e.message);
+    }
+  };
+
+  const handleExpertDecision = async (userId: string | number, decision: 'approve' | 'reject') => {
+    const id = String(userId);
+    const applicant = pendingExperts.find((item) => String(item.id || item.numeric_id) === id);
+    const confirmed = window.confirm(
+      decision === 'approve'
+        ? `Approve ${applicant?.name || 'this'} as an Expert? They will be able to sign in with Expert access.`
+        : `Reject ${applicant?.name || 'this'}'s application? Their pending application account will be removed so they can apply again later.`
+    );
+    if (!confirmed) return;
+    setProcessingExpertId(id);
+    try {
+      if (decision === 'approve') await api.approveExpertApplication(id);
+      else await api.rejectExpertApplication(id);
+      await loadAdminData();
+      window.alert(decision === 'approve' ? 'Expert application approved.' : 'Expert application rejected.');
+    } catch (err: any) {
+      window.alert(err.message || 'Could not process expert application.');
+    } finally {
+      setProcessingExpertId(null);
     }
   };
 
@@ -132,7 +143,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
             { id: 'users', label: 'Farmer RBAC' },
             { id: 'tickets', label: `Farmer Queries (${ticketsList.filter(t => t.status === 'Open').length || 0})` },
             { id: 'model', label: 'AI Health' },
-            { id: 'audit', label: 'Audit Logs' }
+            { id: 'audit', label: 'Audit Logs' },
+            { id: 'tracking', label: 'All Tracking' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -390,7 +402,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
       {/* TAB 3: USER & FARMER RBAC MANAGEMENT */}
       {activeTab === 'users' && (
-        <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6">
+        <div className="space-y-6">
+          <section className="glass-card p-6 rounded-3xl border border-amber-300/60 dark:border-amber-800/60 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Expert Applications</h3>
+                <p className="text-xs text-slate-500">Review new expert registrations. Applicants cannot sign in until approved.</p>
+              </div>
+              <span className="inline-flex w-fit items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                {pendingExperts.length} pending
+              </span>
+            </div>
+            {pendingExperts.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-5 text-center text-sm text-slate-500">
+                No pending expert applications. New requests will appear here.
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {pendingExperts.map((expert) => {
+                  const id = String(expert.id || expert.numeric_id);
+                  return (
+                    <article key={id} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-bold text-slate-900 dark:text-white">{expert.name}</p>
+                          <p className="text-xs text-slate-500">{expert.email}</p>
+                        </div>
+                        <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">PENDING</span>
+                      </div>
+                      <div className="text-xs text-slate-500 space-y-1">
+                        {expert.phone && <p>Phone: {expert.phone}</p>}
+                        {(expert.village || expert.district || expert.state) && <p>Location: {[expert.village, expert.district, expert.state].filter(Boolean).join(', ')}</p>}
+                        {expert.created_at && <p>Applied: {String(expert.created_at).slice(0, 10)}</p>}
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" disabled={processingExpertId === id} onClick={() => handleExpertDecision(id, 'approve')} className="flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
+                          {processingExpertId === id ? 'Please wait…' : 'Approve Expert'}
+                        </button>
+                        <button type="button" disabled={processingExpertId === id} onClick={() => handleExpertDecision(id, 'reject')} className="rounded-xl border border-rose-300 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/30 disabled:opacity-50">
+                          Reject
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+          <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
@@ -435,6 +494,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         u.role === 'ADMIN' ? 'bg-purple-500/20 text-purple-500 border border-purple-500/30' :
                         u.role === 'EXPERT' ? 'bg-blue-500/20 text-blue-500 border border-blue-500/30' :
+                        u.role === 'PENDING_EXPERT' ? 'bg-amber-500/20 text-amber-600 border border-amber-500/30' :
                         'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'
                       }`}>
                         {u.role}
@@ -452,7 +512,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                         className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs"
                       >
                         <option value="FARMER">FARMER</option>
-                        <option value="PENDING_EXPERT">PENDING_EXPERT (Awaiting Approval)</option>
                         <option value="EXPERT">EXPERT</option>
                         <option value="ADMIN">ADMIN</option>
                       </select>
@@ -462,8 +521,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
               </tbody>
             </table>
           </div>
+          </div>
         </div>
       )}
+
+      {/* TAB: COMPLETE ACTIVITY TRACKING — built from recorded backend data only */}
+      {activeTab === 'tracking' && (() => {
+        const events = [
+          ...allUsersForTracking.map((item: any) => ({ type: 'Registration', title: item.name || 'New account', detail: `${item.role || 'USER'} · ${item.email || 'No email'}`, date: item.created_at, id: `user-${item.id || item.numeric_id}` })),
+          ...allScans.map((item: any) => ({ type: 'Prediction', title: item.predictedDisease || item.disease || 'Crop scan', detail: `Farmer: ${item.farmerName || item.farmer_name || item.farmerId || 'Unknown'} · Confidence: ${Number(item.confidenceScore ?? item.confidence ?? 0) <= 1 ? (Number(item.confidenceScore ?? item.confidence ?? 0) * 100).toFixed(1) : Number(item.confidenceScore ?? item.confidence).toFixed(1)}%`, date: item.scannedAt || item.created_at, id: `scan-${item.id}` })),
+          ...ticketsList.map((item: any) => ({ type: 'Support', title: item.subject || item.ticketCode || 'Farmer support request', detail: `${item.status || 'Open'} · ${item.farmerName || 'Farmer'} · ${item.ticketCode || item.id}`, date: item.createdAt || item.created_at, id: `ticket-${item.id}` })),
+          ...auditLogs.map((item: any, index: number) => ({ type: 'Admin Action', title: item.action || 'Administrative event', detail: item.details || item.user_name || 'Recorded admin activity', date: item.created_at, id: `audit-${item.id || index}` })),
+        ].filter((event: any) => event.date && !Number.isNaN(new Date(event.date).getTime())).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const visible = events.filter((event: any) => (trackingType === 'All' || event.type === trackingType) && (!trackingSearch || `${event.title} ${event.detail} ${event.type}`.toLowerCase().includes(trackingSearch.toLowerCase())));
+        return (
+          <section className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div><h3 className="text-lg font-bold text-slate-900 dark:text-white">Complete Platform Activity Tracking</h3><p className="text-xs text-slate-500">One timeline for account registrations, crop predictions, farmer support and administrative actions. Only recorded backend events are shown.</p></div>
+              <div className="flex gap-2"><input value={trackingSearch} onChange={(e) => setTrackingSearch(e.target.value)} placeholder="Search activity..." className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"/><button onClick={loadAdminData} className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">Refresh</button></div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {['All','Registration','Prediction','Support','Admin Action'].map((type) => <button key={type} onClick={() => setTrackingType(type)} className={`rounded-xl p-3 text-left border text-xs font-bold ${trackingType === type ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}><span>{type}</span><span className="block text-lg mt-1">{type === 'All' ? events.length : events.filter((event: any) => event.type === type).length}</span></button>)}
+            </div>
+            {visible.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center text-sm text-slate-500">No recorded activity matches this filter.</div> : <div className="space-y-2 max-h-[620px] overflow-y-auto pr-1">{visible.map((event: any) => <article key={event.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-slate-200 dark:border-slate-700 p-4"><div className="min-w-0"><div className="flex items-center gap-2 mb-1"><span className="rounded-full bg-emerald-500/10 text-emerald-600 px-2 py-1 text-[10px] font-bold">{event.type}</span><h4 className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">{event.title}</h4></div><p className="text-xs text-slate-500 break-words">{event.detail}</p></div><time className="text-[11px] text-slate-400 whitespace-nowrap">{new Date(event.date).toLocaleString()}</time></article>)}</div>}
+            <p className="text-[11px] text-slate-400">Tracking coverage depends on the records currently returned by the backend APIs. This view does not invent missing history or change login/prediction workflows.</p>
+          </section>
+        );
+      })()}
 
       {/* TAB: FARMER QUERIES & TICKETS */}
       {activeTab === 'tickets' && (
