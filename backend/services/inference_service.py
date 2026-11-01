@@ -192,8 +192,10 @@ def run_disease_inference(image_buffer: io.BytesIO) -> dict:
                     {
                         "role": "system",
                         "content": (
-                            "You are an agricultural computer-vision assistant. Analyze the provided soybean leaf photo "
-                            "and classify visible foliar condition. Return JSON only with keys: "
+                            "You are an agricultural computer-vision assistant. First determine whether the image clearly "
+                            "shows a soybean (Glycine max) leaf. If it is not a soybean leaf, is not a leaf, or is too unclear, "
+                            "return class Inconclusive. Only classify a disease when soybean-leaf morphology and visible "
+                            "symptoms support it. Analyze the visible foliar condition. Return JSON only with keys: "
                             '{"class":"one of Healthy Soybean Leaf, Septoria Brown Spot, Asian Soybean Rust, '
                             'Frogeye Leaf Spot, Bacterial Blight, Downy Mildew, Soybean Mosaic Virus, Inconclusive", '
                             '"confidence":number from 0 to 1, "reason":"short visual explanation"}. '
@@ -214,7 +216,12 @@ def run_disease_inference(image_buffer: io.BytesIO) -> dict:
             raw_label = str(parsed.get("class", "Inconclusive")).strip()
             label = normalize_label(raw_label)
             confidence = max(0.0, min(1.0, float(parsed.get("confidence", 0.0))))
-            if label.lower() not in {"inconclusive", "unknown", "other"} and confidence > 0:
+            allowed_labels = {
+                "Healthy Soybean Leaf", "Septoria Brown Spot", "Asian Soybean Rust",
+                "Frogeye Leaf Spot", "Bacterial Blight", "Downy Mildew",
+                "Soybean Mosaic Virus"
+            }
+            if label in allowed_labels and confidence > 0:
                 prediction = {
                     "class": label,
                     "raw_label": raw_label,
@@ -225,7 +232,7 @@ def run_disease_inference(image_buffer: io.BytesIO) -> dict:
                 return {
                     "success": True,
                     "provider": "groq_vision_classifier",
-                    "model_id": Config.GROQ_VISION_MODEL,
+                    "model_id": (Config.GROQ_VISION_MODEL if Config.GROQ_VISION_MODEL.startswith("qwen/") else "qwen/qwen3.8-27b"),
                     "predictions": [prediction],
                     "top_prediction": prediction
                 }
