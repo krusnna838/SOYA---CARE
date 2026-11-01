@@ -13,7 +13,7 @@ class Config:
     if not DB_PATH.is_absolute():
         DB_PATH = BASE_DIR / DB_PATH
 
-    IS_PRODUCTION = os.getenv("FLASK_ENV", "production").lower() == "production"
+    IS_PRODUCTION = os.getenv("FLASK_ENV", "").lower() == "production" or os.getenv("RENDER", "").lower() == "true"
     _secret_key = os.getenv("SECRET_KEY", "")
     _jwt_secret = os.getenv("JWT_SECRET", "")
     if IS_PRODUCTION and (len(_secret_key) < 32 or len(_jwt_secret) < 32):
