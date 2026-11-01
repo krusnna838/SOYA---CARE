@@ -13,9 +13,14 @@ class Config:
     if not DB_PATH.is_absolute():
         DB_PATH = BASE_DIR / DB_PATH
 
-    SECRET_KEY = os.getenv("SECRET_KEY") or secrets.token_hex(32)
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY") or secrets.token_hex(32)
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES_DAYS", "7")))
+    IS_PRODUCTION = os.getenv("FLASK_ENV", "production").lower() == "production"
+    _secret_key = os.getenv("SECRET_KEY", "")
+    _jwt_secret = os.getenv("JWT_SECRET", "")
+    if IS_PRODUCTION and (len(_secret_key) < 32 or len(_jwt_secret) < 32):
+        raise RuntimeError("Production requires SECRET_KEY and JWT_SECRET with at least 32 characters each.")
+    SECRET_KEY = _secret_key or secrets.token_urlsafe(48)
+    JWT_SECRET_KEY = _jwt_secret or secrets.token_urlsafe(48)
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES_HOURS", "8")) )
     
     MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10 MB limit
     UPLOAD_FOLDER = BASE_DIR / "uploads"
