@@ -445,7 +445,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
             )}
           </section>
           <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6">
-        <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
