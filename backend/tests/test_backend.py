@@ -228,7 +228,10 @@ def test_pdf_report_download(client, monkeypatch):
     report_id = pred_data["report_id"]
 
     # Download PDF
-    pdf_resp = client.get(f"/api/reports/{report_id}/pdf")
+    pdf_resp = client.get(
+        f"/api/reports/{report_id}/pdf",
+        headers={"Authorization": f"Bearer {token}"}
+    )
     assert pdf_resp.status_code == 200
     assert pdf_resp.mimetype == "application/pdf"
     assert len(pdf_resp.data) > 500
