@@ -165,14 +165,22 @@ def init_db(app=None):
         
         if admin_email and admin_pass:
             existing = conn.execute("SELECT id FROM users WHERE LOWER(email) = ?", (admin_email,)).fetchone()
-            if not existing:
+            password_hash = generate_password_hash(admin_pass)
+            if existing:
+                # Explicit environment credentials are an administrator bootstrap:
+                # ensure the configured account has the intended password and role.
+                conn.execute(
+                    "UPDATE users SET name = ?, password_hash = ?, role = 'ADMIN' WHERE id = ?",
+                    (admin_name, password_hash, existing["id"])
+                )
+            else:
                 conn.execute(
                     """INSERT INTO users (name, email, password_hash, role, created_at)
                        VALUES (?, ?, ?, 'ADMIN', ?)""",
-                    (admin_name, admin_email, generate_password_hash(admin_pass), datetime.now(timezone.utc).isoformat())
+                    (admin_name, admin_email, password_hash, datetime.now(timezone.utc).isoformat())
                 )
-                conn.commit()
-                logger.info(f"Default administrator initialized: {admin_email}")
+            conn.commit()
+            logger.info("Administrator bootstrap credentials applied for %s", admin_email)
 
 def seed_diseases(conn):
     diseases = [
