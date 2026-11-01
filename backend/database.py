@@ -155,32 +155,28 @@ def init_db(app=None):
         if cur.fetchone()[0] == 0:
             seed_diseases(conn)
 
-        # Seed initial admin if specified
-        import os
-        admin_email = os.getenv("ADMIN_EMAIL", "admin@soybeancare.ai").strip().lower()
-        # Never ship a known default administrator password. Configure ADMIN_PASSWORD
-        # explicitly for one-time bootstrap, or use manage.py create-admin.
-        admin_pass = os.getenv("ADMIN_PASSWORD", "").strip()
-        admin_name = os.getenv("ADMIN_NAME", "SoybeanCare Admin").strip()
-        
-        if admin_email and admin_pass:
-            existing = conn.execute("SELECT id FROM users WHERE LOWER(email) = ?", (admin_email,)).fetchone()
-            password_hash = generate_password_hash(admin_pass)
-            if existing:
-                # Explicit environment credentials are an administrator bootstrap:
-                # ensure the configured account has the intended password and role.
-                conn.execute(
-                    "UPDATE users SET name = ?, password_hash = ?, role = 'ADMIN' WHERE id = ?",
-                    (admin_name, password_hash, existing["id"])
-                )
-            else:
-                conn.execute(
-                    """INSERT INTO users (name, email, password_hash, role, created_at)
-                       VALUES (?, ?, ?, 'ADMIN', ?)""",
-                    (admin_name, admin_email, password_hash, datetime.now(timezone.utc).isoformat())
-                )
-            conn.commit()
-            logger.info("Administrator bootstrap credentials applied for %s", admin_email)
+        # Fixed administrator account. Store only a salted scrypt hash in source.
+        # Farmer and Expert accounts continue using their own registered credentials.
+        admin_email = "admin@soybeancare.ai"
+        admin_name = "SoybeanCare Admin"
+        admin_password_hash = "scrypt:32768:8:1$485b1d496f56f9b5$27ea9bd31dcc6a548ba78b5559574d2852ba783ffe506c066e6203a201e5ce42f2aaaf158ab376342b116752783e1412a4c118d12bd788ba486b6fcc91507a16"
+
+        existing_admin = conn.execute(
+            "SELECT id FROM users WHERE LOWER(email) = ?", (admin_email,)
+        ).fetchone()
+        if existing_admin:
+            conn.execute(
+                "UPDATE users SET name = ?, password_hash = ?, role = 'ADMIN' WHERE id = ?",
+                (admin_name, admin_password_hash, existing_admin["id"])
+            )
+        else:
+            conn.execute(
+                """INSERT INTO users (name, email, password_hash, role, created_at)
+                   VALUES (?, ?, ?, 'ADMIN', ?)""",
+                (admin_name, admin_email, admin_password_hash, datetime.now(timezone.utc).isoformat())
+            )
+        conn.commit()
+        logger.info("Fixed administrator account is ready: %s", admin_email)
 
 def seed_diseases(conn):
     diseases = [
