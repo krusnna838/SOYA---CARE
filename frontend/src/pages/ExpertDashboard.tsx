@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { User, DiseaseScan } from '../types';
 import { ShieldCheck, CheckCircle2, XCircle, MessageSquare, Edit3, Send, Sparkles, UserCheck, AlertTriangle } from 'lucide-react';
 import { api } from '../services/api';
@@ -6,10 +6,22 @@ import { api } from '../services/api';
 interface ExpertDashboardProps {
   user: User;
   scans: DiseaseScan[];
+  onReviewComplete?: () => Promise<void> | void;
 }
 
-export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans }) => {
-  const [activeScan, setActiveScan] = useState<DiseaseScan | null>(scans[0] || null);
+export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans, onReviewComplete }) => {
+  const pendingScans = useMemo(() => scans.filter((scan) => scan.status === 'pending_review'), [scans]);
+  const [activeScan, setActiveScan] = useState<DiseaseScan | null>(pendingScans[0] || null);
+  const [showReviewed, setShowReviewed] = useState(false);
+  const visibleScans = showReviewed ? scans.filter((scan) => scan.status !== 'pending_review') : pendingScans;
+
+  useEffect(() => {
+    if (!activeScan || !scans.some((scan) => scan.id === activeScan.id && scan.status === 'pending_review')) {
+      setActiveScan(pendingScans[0] || null);
+      setExpertNote('');
+      setCustomDisease('');
+    }
+  }, [scans, pendingScans]);
   const [expertNote, setExpertNote] = useState('');
   const [customDisease, setCustomDisease] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -29,11 +41,10 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
       });
 
       alert(`Scan #${activeScan.id} has been successfully ${approve ? 'approved' : 'updated with expert diagnosis'}!`);
-      activeScan.status = 'reviewed';
-      activeScan.expertApproved = approve;
-      if (customDisease) {
-        activeScan.predictedDisease = customDisease;
-      }
+      await onReviewComplete?.();
+      setActiveScan(null);
+      setExpertNote('');
+      setCustomDisease('');
     } catch (e: any) {
       alert(`Could not save the expert review: ${e.message || 'Please try again.'}`);
     } finally {
@@ -62,7 +73,7 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
             Agricultural Expert Portal
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Review farmer AI predictions, override misclassifications, and issue certified field advice.
+            Review farmer-submitted AI screenings, record an expert decision, and publish practical field advice.
           </p>
         </div>
 
@@ -81,14 +92,18 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
         {/* Left Farmer Scan Queue */}
         <div className="lg:col-span-5 space-y-4">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center justify-between">
-            <span>Pending Farmer Submissions Queue</span>
+            <span>{showReviewed ? 'Reviewed Submissions' : 'Expert Review Queue'}</span>
             <span className="text-xs bg-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded-full font-extrabold">
-              {scans.length} Scans
+              {visibleScans.length} Scans
             </span>
           </h3>
 
+          <div className="flex gap-2">
+            <button onClick={() => setShowReviewed(false)} className={`px-3 py-2 rounded-xl text-xs font-bold ${!showReviewed ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>Pending ({pendingScans.length})</button>
+            <button onClick={() => setShowReviewed(true)} className={`px-3 py-2 rounded-xl text-xs font-bold ${showReviewed ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>Reviewed</button>
+          </div>
           <div className="space-y-3">
-            {scans.map((scan) => {
+            {visibleScans.map((scan) => {
               const isSelected = activeScan?.id === scan.id;
               return (
                 <div
@@ -122,6 +137,7 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
                 </div>
               );
             })}
+            {visibleScans.length === 0 && <div className="p-6 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-xs text-slate-500">{showReviewed ? 'No reviewed submissions yet.' : 'No farmer requests are waiting for expert review.'}</div>}
           </div>
         </div>
 
@@ -201,7 +217,7 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
                     className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center space-x-1.5"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Approve AI Diagnosis</span>
+                    <span>Approve &amp; Send Advice</span>
                   </button>
 
                   <button
@@ -210,7 +226,7 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
                     className="flex-1 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all flex items-center justify-center space-x-1.5"
                   >
                     <Edit3 className="w-4 h-4 text-amber-500" />
-                    <span>Update Advisory Notes</span>
+                    <span>Correct Diagnosis &amp; Send</span>
                   </button>
                 </div>
               </div>
@@ -219,7 +235,7 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
               <div className="pt-6 border-t border-slate-200 dark:border-slate-800 space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-2">
                   <MessageSquare className="w-4 h-4 text-emerald-500" />
-                  <span>Local Advisory Note (not delivered to farmer)</span>
+                  <span>Expert–Farmer Conversation</span>
                 </h4>
 
                 <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 h-40 overflow-y-auto space-y-3 text-xs">
@@ -231,7 +247,7 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
                   ))}
                 </div>
 
-                <p className="text-[10px] text-amber-600 dark:text-amber-400">Messages typed here are not sent or saved on the server. Use a connected ticket or messaging service for real communication.</p>
+                <p className="text-[10px] text-slate-500">Use the review form above to save the official recommendation to the farmer's report. This chat box is a local draft only.</p>
                 <form onSubmit={sendChat} className="flex space-x-2">
                   <input
                     type="text"
