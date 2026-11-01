@@ -157,8 +157,20 @@ def test_predict_empty_image(client):
     resp = client.post("/api/predict", json={})
     assert resp.status_code == 400
 
-def test_predict_with_valid_image(client):
-    """Test full pipeline with a generated foliar image."""
+def test_predict_with_valid_image(client, monkeypatch):
+    """Test upload prediction without requiring a live external AI key."""
+    import app as backend_app
+    monkeypatch.setattr(backend_app, "verify_soybean_leaf", lambda image: {
+        "status": "UNCERTAIN", "reason": "Test verifier fallback.", "confidence": 0.5,
+        "provider": "local_heuristic"
+    })
+    monkeypatch.setattr(backend_app, "run_disease_inference", lambda image: {
+        "success": True, "provider": "test_ai", "model_id": "test-model",
+        "predictions": [{"class": "Healthy Soybean Leaf", "confidence": 0.95,
+                         "confidence_percent": 95.0}],
+        "top_prediction": {"class": "Healthy Soybean Leaf", "confidence": 0.95,
+                           "confidence_percent": 95.0}
+    })
     img_buf = create_test_image_bytes(color=(34, 139, 34), size=(240, 240))
     data = {
         "image": (img_buf, "test_leaf.jpg"),
@@ -172,12 +184,28 @@ def test_predict_with_valid_image(client):
     assert "verification" in res_data
     assert "predictions" in res_data
     assert "decision" in res_data
+    assert res_data["detected"] is True
+    assert res_data["scan"]["predictedDisease"] == "Healthy Soybean Leaf"
+    assert res_data["scan"]["farmerId"] == "guest"
+    assert "report_id" not in res_data
 
 # -------------------------------------------------------------
 # 4. REPORTS & PDF DOWNLOAD TESTS
 # -------------------------------------------------------------
-def test_pdf_report_download(client):
-    """Test generating a report and downloading its PDF."""
+def test_pdf_report_download(client, monkeypatch):
+    """Test generating a report and downloading its PDF without live AI credentials."""
+    import app as backend_app
+    monkeypatch.setattr(backend_app, "verify_soybean_leaf", lambda image: {
+        "status": "UNCERTAIN", "reason": "Test verifier fallback.", "confidence": 0.5,
+        "provider": "local_heuristic"
+    })
+    monkeypatch.setattr(backend_app, "run_disease_inference", lambda image: {
+        "success": True, "provider": "test_ai", "model_id": "test-model",
+        "predictions": [{"class": "Asian Soybean Rust", "confidence": 0.95,
+                         "confidence_percent": 95.0}],
+        "top_prediction": {"class": "Asian Soybean Rust", "confidence": 0.95,
+                           "confidence_percent": 95.0}
+    })
     pdf_email = f"pdf_{uuid.uuid4().hex[:6]}@example.com"
     client.post("/api/auth/register", json={
         "name": "PDF Farmer",
@@ -195,7 +223,9 @@ def test_pdf_report_download(client):
         content_type="multipart/form-data"
     )
     pred_data = pred_resp.get_json()
-    report_id = pred_data.get("report_id") or 1
+    assert pred_resp.status_code == 200
+    assert pred_data.get("report_id")
+    report_id = pred_data["report_id"]
 
     # Download PDF
     pdf_resp = client.get(f"/api/reports/{report_id}/pdf")
