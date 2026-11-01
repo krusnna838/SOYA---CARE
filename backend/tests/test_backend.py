@@ -207,8 +207,8 @@ def test_pdf_report_download(client):
 # -------------------------------------------------------------
 # 7. DIAGNOSIS DECISION SAFETY TESTS
 # -------------------------------------------------------------
-def test_uncertain_leaf_verification_never_returns_disease_prediction():
-    """A green-looking leaf is not enough to claim soybean species identity."""
+def test_uncertain_leaf_verification_can_use_explicit_ai_classifier_result():
+    """When the heuristic is uncertain, a valid vision-classifier result is preliminary evidence."""
     from services.decision_service import evaluate_final_decision
 
     result = evaluate_final_decision(
@@ -224,7 +224,7 @@ def test_uncertain_leaf_verification_never_returns_disease_prediction():
         },
     )
 
-    assert result["detected"] is False
-    assert result["decision"] == "UNCERTAIN"
-    assert result["disease"] is None
-    assert result["predictions"] == []
+    assert result["detected"] is True
+    assert result["decision"] == "PRELIMINARY_PREDICTION"
+    assert result["disease"] == "Asian Soybean Rust"
+    assert result["predictions"][0]["class"] == "Asian Soybean Rust"
