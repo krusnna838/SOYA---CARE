@@ -77,6 +77,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
     try {
       if (mode === 'login') {
         const data = await api.login(email.trim().toLowerCase(), password, role);
+        if (data.user.role !== role) {
+          api.logout();
+          setError(`This account is registered as ${data.user.role}. Please choose the matching account type.`);
+          return;
+        }
         onLoginSuccess(data.user);
         onClose();
       } else if (mode === 'register') {
@@ -160,6 +165,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
         {error && (
           <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold">
             {error}
+          </div>
+        )}
+
+        {mode === 'login' && (
+          <div className="mb-4">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">Sign in as</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['FARMER', 'EXPERT', 'ADMIN'] as UserRole[]).map((accountRole) => (
+                <button
+                  key={accountRole}
+                  type="button"
+                  onClick={() => { setRole(accountRole); setError(''); }}
+                  className={`py-2.5 rounded-xl border text-xs font-bold transition-colors ${role === accountRole ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'}`}
+                >
+                  {accountRole === 'FARMER' ? '🌱 Farmer' : accountRole === 'EXPERT' ? '🔬 Expert' : '🛡️ Admin'}
+                </button>
+              ))}
+            </div>
+            {role === 'EXPERT' && (
+              <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                Use the email and password issued for your verified expert account. Expert access is assigned by an administrator.
+              </p>
+            )}
+            {role === 'ADMIN' && (
+              <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                Administrator access requires an account provisioned by the system administrator.
+              </p>
+            )}
           </div>
         )}
 
@@ -271,13 +304,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                   >
                     🌱 Soybean Farmer
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole('EXPERT')}
-                    className={`py-2 px-3 rounded-xl border text-left font-medium transition-colors ${role === 'EXPERT' ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'}`}
-                  >
-                    🔬 Agronomist
-                  </button>
+                  <div className="py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex items-center">
+                    Expert accounts are created or approved by an administrator. Choose Expert Sign In if you already have credentials.
+                  </div>
                 </div>
               </div>
             </>
