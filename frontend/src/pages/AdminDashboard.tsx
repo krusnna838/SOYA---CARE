@@ -47,6 +47,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     setLoading(false);
   };
 
+  useEffect(() => {
+    void loadAdminData();
+  }, [searchQuery]);
+
   const handleRoleChange = async (userId: string | number, newRole: string) => {
     try {
       await api.updateUserRole(userId, newRole);
@@ -60,7 +64,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const handleExpertDecision = async (userId: string | number, decision: 'approve' | 'reject') => {
     const id = String(userId);
     const applicant = pendingExperts.find((item) => String(item.id || item.numeric_id) === id);
-    const action = decision === 'approve' ? 'approve' : 'reject';
     const confirmed = window.confirm(
       decision === 'approve'
         ? `Approve ${applicant?.name || 'this'} as an Expert? They will be able to sign in with Expert access.`
