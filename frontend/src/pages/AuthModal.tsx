@@ -24,6 +24,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   if (!isOpen) return null;
 
@@ -66,8 +67,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
         setError('Please fill in your name, email, and password.');
         return;
       }
-      if (password.length < 6) {
-        setError('Password must be at least 6 characters.');
+      if (password.length < 12) {
+        setError('Password must be at least 12 characters.');
         return;
       }
     }
@@ -92,8 +93,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
           farmSize: farmSize.trim(),
           role
         });
-        onLoginSuccess(data.user);
-        onClose();
+        if (data.pendingApproval) {
+          setNotice('Expert application submitted. You can sign in after an administrator approves your account.');
+          setError('');
+          setMode('login');
+          setRole('EXPERT');
+          setPassword('');
+        } else {
+          onLoginSuccess(data.user);
+          onClose();
+        }
       } else {
         alert('Password reset instructions sent to your registered email address.');
         setMode('login');
@@ -143,25 +152,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
         <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-5 text-xs font-semibold">
           <button
             type="button"
-            onClick={() => { setMode('login'); setError(''); }}
+            onClick={() => { setMode('login'); setError(''); setNotice(''); }}
             className={`py-2 rounded-xl transition-all ${mode === 'login' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
             Sign In
           </button>
           <button
             type="button"
-            onClick={() => { setMode('register'); setRole('FARMER'); setError(''); }}
+            onClick={() => { setMode('register'); setRole('FARMER'); setError(''); setNotice(''); }}
             className={`py-2 rounded-xl transition-all ${mode === 'register' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
             Create Account
           </button>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold">
-            {error}
-          </div>
-        )}
+        {error && <div role="alert" className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold">{error}</div>}
+        {notice && <div role="status" className="mb-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold">{notice}</div>}
 
         {/* Auth Form */}
         <form onSubmit={handleSubmit} className="space-y-3.5">
@@ -261,8 +267,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                 </div>
               </div>
 
+              <div>
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Account Type</label>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <button type="button" onClick={() => setRole('FARMER')} className={`py-2.5 rounded-xl border font-semibold ${role === 'FARMER' ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-200 dark:border-slate-700'}`}>🌱 Farmer</button>
+                  <button type="button" onClick={() => setRole('EXPERT')} className={`py-2.5 rounded-xl border font-semibold ${role === 'EXPERT' ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-200 dark:border-slate-700'}`}>🔬 Expert</button>
+                </div>
+              </div>
               <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-[11px] text-emerald-800 dark:text-emerald-300">
-                Farmer registration is open. Expert accounts are created or approved by the administrator; please sign in after your account is approved.
+                Farmer accounts activate immediately. Expert applications require administrator approval before sign-in. Admin accounts cannot be created here.
               </div>
             </>
           )}
@@ -323,7 +336,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                 <input
                   type="password"
                   required
-                  placeholder="••••••••"
+                  minLength={12}
+                  maxLength={128}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  placeholder="At least 12 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
