@@ -25,16 +25,11 @@ Or run them individually:
 
 ---
 
-## 🔐 Default Access Credentials
+## 🔐 Account provisioning and security
 
-The SQLite database (`backend/soybeancare.db`) includes initialized accounts:
+There are no public default administrator or demo-user credentials. Create the first administrator using private hosting environment variables (`ADMIN_EMAIL` and `ADMIN_PASSWORD`, minimum 12 characters) or run `python manage.py create-admin` in a trusted deployment environment. Never commit passwords, API keys, or production secrets.
 
-| Role | Email | Password | Access Privileges |
-| :--- | :--- | :--- | :--- |
-| **Administrator** | `admin@soybeancare.ai` | `SoybeanAdmin2026!` | Admin Dashboard, GIS Geospatial Map, RBAC User Manager, Audit Logs, Health |
-| **Demo Farmer** | `farmer@soybeancare.ai` | `Farmer123!` | Leaf Scanner, Camera Mode, GPS Tagging, Treatment Plans, PDF Reports |
-
----
+Public registration is limited to Farmer and Expert applications. Expert accounts remain pending until an administrator verifies and approves them. Admin accounts must be provisioned by an operator.
 
 ## 🧬 4-Stage Image Analysis Pipeline
 
