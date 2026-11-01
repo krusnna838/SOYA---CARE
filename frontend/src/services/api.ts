@@ -380,7 +380,7 @@ export const api = {
   // -------------------------------------------------------------
   // WEATHER & GOVERNMENT SCHEMES
   // -------------------------------------------------------------
-  async getWeather(lat?: number, lon?: number): Promise<WeatherData> {
+  async getWeather(lat?: number, lon?: number): Promise<WeatherData | null> {
     try {
       const q = (lat !== undefined && lon !== undefined) ? `?lat=${lat}&lon=${lon}` : '';
       const res = await fetchWithAuth(`${API_BASE_URL}/weather${q}`);
@@ -388,16 +388,8 @@ export const api = {
         const data = await res.json();
         return data.weather;
       }
-    } catch (e) {}
-    return {
-      temperatureC: 28.4,
-      humidityPercent: 74,
-      windSpeedKmh: 14.2,
-      condition: 'Partly Cloudy with Humidity',
-      rainProbabilityPercent: 35,
-      location: 'Madhya Pradesh Soybean Zone',
-      sprayAdvisory: 'Favorable for morning spraying until 10:30 AM before wind speed increases.'
-    };
+    } catch (e) { console.warn('Weather service unavailable:', e); }
+    return null;
   },
 
   async getSchemes(state?: string): Promise<GovtScheme[]> {
