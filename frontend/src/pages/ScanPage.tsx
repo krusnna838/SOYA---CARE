@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { 
-  Camera, Upload, Sparkles, RefreshCw, FileText, CheckCircle2, 
-  ShieldAlert, Bug, Droplet, AlertTriangle, UserCheck, ShieldCheck, 
-  MapPin, X, SwitchCamera 
+import {
+  Camera, Upload, Sparkles, RefreshCw, FileText, CheckCircle2,
+  ShieldAlert, Bug, Droplet, AlertTriangle, UserCheck, ShieldCheck,
+  MapPin, X, SwitchCamera
 } from 'lucide-react';
 import type { DiseaseScan, User } from '../types';
 import { api } from '../services/api';
@@ -19,7 +19,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
   const [scanResult, setScanResult] = useState<DiseaseScan | null>(null);
   const [rawApiResponse, setRawApiResponse] = useState<any | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  
+
   // Real Camera Capture States
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
@@ -66,8 +66,9 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
     stopCamera();
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 12 * 1024 * 1024) {
-        setErrorMessage("Image file is too large (maximum 10 MB allowed).");
+      if (file.size > 10 * 1024 * 1024) {
+        setErrorMessage("Image file is too large. Maximum allowed size is 10 MB.");
+        e.target.value = "";
         return;
       }
       const reader = new FileReader();
@@ -81,49 +82,113 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
     }
   };
 
+  // Attach the camera stream only AFTER React has rendered the <video> element.
+  // The previous implementation assigned srcObject before the conditional video
+  // element existed, which left videoRef.current null and produced a black preview.
+  React.useEffect(() => {
+    if (!isCameraActive) return;
+
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!video || !stream) return;
+
+    video.srcObject = stream;
+    video.muted = true;
+    video.playsInline = true;
+
+    video.play().catch((error) => {
+      console.error("Camera playback error:", error);
+      setErrorMessage("Camera was opened, but video playback failed. Check browser camera permission and try again.");
+    });
+  }, [isCameraActive]);
+
+  // Always release the webcam when this page is unmounted.
+  React.useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+  }, []);
+
   // Real Camera Handling
   const startCamera = async () => {
     try {
       setErrorMessage(null);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
+      setSelectedImage(null);
+      setScanResult(null);
+      setRawApiResponse(null);
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Camera API is unavailable. Open this site over HTTPS or use a supported browser.");
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facingMode }
-      });
+
+      // Stop any previously opened stream before requesting a new one.
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: facingMode },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        });
+      } catch (firstError) {
+        console.warn("Preferred camera request failed; trying default camera:", firstError);
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
       setIsCameraActive(true);
     } catch (err) {
       console.error("Camera access error:", err);
-      setErrorMessage("Could not open device camera. Please verify camera permissions in your browser.");
+      setIsCameraActive(false);
+      const name = err instanceof DOMException ? err.name : "";
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        setErrorMessage("Camera permission was denied. Allow camera access in your browser's site settings, then try again.");
+      } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+        setErrorMessage("No camera was found. Connect or enable a webcam and try again.");
+      } else if (name === "NotReadableError" || name === "TrackStartError") {
+        setErrorMessage("The camera is busy in another application. Close other apps using the camera and retry.");
+      } else {
+        setErrorMessage(err instanceof Error ? err.message : "Could not open the camera. Check browser permission and webcam connection.");
+      }
     }
   };
 
   const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
     setIsCameraActive(false);
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth || 640;
-    canvas.height = videoRef.current.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      setSelectedImage(dataUrl);
-      setScanResult(null);
-      setRawApiResponse(null);
-      stopCamera();
+    const video = videoRef.current;
+    if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
+      setErrorMessage("Camera is still starting. Wait until the live image appears, then capture again.");
+      return;
     }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      setErrorMessage("Could not capture the camera image. Please retry.");
+      return;
+    }
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    setSelectedImage(dataUrl);
+    setScanResult(null);
+    setRawApiResponse(null);
+    setErrorMessage(null);
+    stopCamera();
   };
 
   const toggleCameraFacing = () => {
@@ -151,8 +216,12 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
       if (response.scan) {
         setScanResult(response.scan);
       } else if (response.detected === false) {
-        // Non-soybean image or rejected image
+        // The backend rejected the image during soybean-leaf verification.
         setScanResult(null);
+        setErrorMessage(response.message || response.verification?.reason || "The image could not be verified as a soybean leaf. Try a clear, close-up soybean leaf photo.");
+      } else {
+        setScanResult(null);
+        setErrorMessage(response.message || "The server received the image but returned no diagnosis. Check backend model configuration and server logs.");
       }
     } catch (e: any) {
       console.error("Diagnosis error:", e);
@@ -191,7 +260,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
-      
+
       {/* Title & Header */}
       <div className="text-center max-w-2xl mx-auto space-y-2">
         <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-semibold border border-emerald-500/20">
@@ -214,11 +283,11 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        
+
         {/* Left Workbench Panel: Image Capture / Upload */}
         <div className="lg:col-span-6 space-y-6">
           <div className="glass-card p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6">
-            
+
             <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center space-x-2">
                 <Camera className="w-5 h-5 text-emerald-500" />
@@ -237,7 +306,14 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
             {/* Live Camera View */}
             {isCameraActive && (
               <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500 shadow-xl bg-black">
-                <video ref={videoRef} autoPlay playsInline className="w-full h-80 object-cover" />
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  onCanPlay={() => setErrorMessage(null)}
+                  className="w-full h-80 object-contain bg-black"
+                />
                 <div className="absolute top-3 right-3 flex space-x-2">
                   <button
                     onClick={toggleCameraFacing}
@@ -287,7 +363,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
                         Running 4-Stage Phytopathology Pipeline...
                       </p>
                       <p className="text-[10px] text-slate-300">
-                        Stage A: Validation · Stage B: Morphology · Stage C: Classifier · Stage D: Decision
+                        Stage A: Validation ┬╖ Stage B: Morphology ┬╖ Stage C: Classifier ┬╖ Stage D: Decision
                       </p>
                     </div>
                   )}
@@ -413,7 +489,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
           ) : scanResult ? (
             /* Successful Diagnosis Card */
             <div className="glass-card p-6 sm:p-8 rounded-3xl border border-emerald-500/40 shadow-2xl space-y-6 animate-in fade-in">
-              
+
               {/* Top Status Header */}
               <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center space-x-2">
@@ -521,7 +597,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
                   className="flex-1 py-3.5 rounded-xl glass-card text-slate-800 dark:text-slate-200 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-800 transition-all border border-slate-300 dark:border-slate-700 flex items-center justify-center space-x-2 disabled:opacity-60"
                 >
                   <UserCheck className="w-4 h-4 text-emerald-500" />
-                  <span>{expertRequested ? "Review Requested ✓" : requestingExpert ? "Logging Request..." : "Request Agronomist Review"}</span>
+                  <span>{expertRequested ? "Review Requested Γ£ô" : requestingExpert ? "Logging Request..." : "Request Agronomist Review"}</span>
                 </button>
               </div>
 
