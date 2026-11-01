@@ -86,7 +86,7 @@ export const CustomerCarePage: React.FC<CustomerCarePageProps> = ({ user, ticket
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Automated Assistant</h3>
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">Not connected</p>
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">Not connected — use support tickets</p>
             </div>
           </div>
 
