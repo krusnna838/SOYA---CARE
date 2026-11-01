@@ -76,78 +76,9 @@ def evaluate_image_foliage_heuristics(image_buffer: io.BytesIO) -> dict:
 
 def verify_soybean_leaf(image_buffer: io.BytesIO) -> dict:
     """
-    STAGE B: Soybean Leaf Verification Pipeline
-    Queries Groq Vision model with fallback to local visual heuristics.
-    Returns:
-        status: 'SOYBEAN_LEAF' | 'NOT_SOYBEAN_LEAF' | 'UNCERTAIN'
-        reason: Plain-text explanation
-        confidence: float (0.0 to 1.0)
-        provider: 'groq_vision' | 'local_heuristic'
+    Stage B uses a cheap local screen only. The vision classifier in Stage C
+    performs the actual soybean-leaf verification and disease classification
+    together, avoiding two paid/rate-limited vision requests for one upload.
+    Color heuristics never claim that a plant is a soybean.
     """
-    if not Config.GROQ_API_KEY:
-        logger.info("Groq API key not provided; using local foliage heuristic screening.")
-        return evaluate_image_foliage_heuristics(image_buffer)
-
-    try:
-        from groq import Groq
-        client = Groq(api_key=Config.GROQ_API_KEY, timeout=15.0)
-
-        image_buffer.seek(0)
-        b64_data = base64.b64encode(image_buffer.getvalue()).decode("ascii")
-
-        system_prompt = (
-            "You are a strict agricultural computer vision screening assistant for a soybean health platform. "
-            "Your ONLY role is to examine the uploaded photo and verify whether it contains a soybean (Glycine max) leaf. "
-            "You MUST reject images showing: human faces, bodies, animals, livestock, vehicles, indoor buildings, "
-            "documents, screenshots, random non-agricultural objects, or unrelated non-foliar plants (e.g. cacti, conifers, bananas). "
-            "Acknowledge that vision models cannot provide 100% botanical DNA proof, but you must identify visible leaf morphology. "
-            "Return valid JSON ONLY with these exact fields: "
-            '{"status": "SOYBEAN_LEAF" | "NOT_SOYBEAN_LEAF" | "UNCERTAIN", '
-            '"reason": "brief 1-2 sentence explanation", '
-            '"confidence": float between 0.0 and 1.0}. '
-            "Do NOT diagnose diseases in this stage. If unsure or blurry, return UNCERTAIN."
-        )
-
-        user_content = [
-            {"type": "text", "text": "Inspect this image carefully. Is this visibly a soybean leaf suitable for disease diagnosis?"},
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_data}"}}
-        ]
-
-        response = client.chat.completions.create(
-            model=(Config.GROQ_VISION_MODEL if Config.GROQ_VISION_MODEL.startswith("qwen/") else "qwen/qwen3.8-27b"),
-            temperature=0.0,
-            max_completion_tokens=220,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_content}
-            ]
-        )
-
-        content = response.choices[0].message.content
-        data = json.loads(content)
-
-        status = data.get("status", "UNCERTAIN").strip().upper()
-        if status not in {"SOYBEAN_LEAF", "NOT_SOYBEAN_LEAF", "UNCERTAIN"}:
-            status = "UNCERTAIN"
-
-        reason = str(data.get("reason", "Verification assessment completed."))[:400]
-        try:
-            confidence = float(data.get("confidence", 0.75))
-            confidence = max(0.0, min(1.0, confidence))
-        except (ValueError, TypeError):
-            confidence = 0.75
-
-        return {
-            "status": status,
-            "reason": reason,
-            "confidence": confidence,
-            "provider": "groq_vision"
-        }
-
-    except Exception as exc:
-        logger.warning(f"Groq Vision verification encountered an issue: {exc}. Falling back to local heuristic.")
-        # Graceful fallback to local heuristics so system never crashes
-        fallback = evaluate_image_foliage_heuristics(image_buffer)
-        fallback["reason"] += " (Groq vision service temporarily unavailable)."
-        return fallback
+    return evaluate_image_foliage_heuristics(image_buffer)
