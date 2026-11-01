@@ -701,12 +701,36 @@ def create_app(test_config=None):
                     "UPDATE reports SET status = ?, explanation = coalesce(explanation, '') || ' [Verified by ' || ? || ']' WHERE id = ?",
                     (status_text, expert_name, report_num)
                 )
+            # Close the matching farmer consultation and append the expert's
+            # decision to its persistent conversation so Admin and Farmer views
+            # share the same review outcome.
+            linked_tickets = get_db().execute(
+                "SELECT id FROM support_tickets WHERE subject LIKE ? ORDER BY id DESC",
+                (f"%Scan #{report_num}:%",)
+            ).fetchall()
+            decision_label = "AI diagnosis approved" if approve else "AI diagnosis updated / not approved"
+            advisory_text = f"Expert review completed by {expert_name}. {decision_label}."
+            if expert_notes:
+                advisory_text += f" Expert advice: {expert_notes}"
+            if custom_disease and not approve:
+                advisory_text += f" Updated diagnosis: {custom_disease}"
+            for linked_ticket in linked_tickets:
+                get_db().execute(
+                    "UPDATE support_tickets SET status = 'Resolved' WHERE id = ?",
+                    (linked_ticket["id"],)
+                )
+                get_db().execute(
+                    """INSERT INTO ticket_messages (ticket_id, sender_name, sender_role, text, created_at)
+                       VALUES (?, ?, 'EXPERT', ?, ?)""",
+                    (linked_ticket["id"], expert_name, advisory_text, datetime.now(timezone.utc).isoformat())
+                )
+
             get_db().commit()
             log_audit("expert_review", f"Scan #{report_num} verified by {expert_name}. Approved: {approve}")
             return jsonify({
-                "message": "Expert review successfully recorded.",
+                "message": "Expert review successfully recorded and linked consultation updated.",
                 "report_id": report_num,
-                "status": "reviewed",
+                "status": status_text,
                 "expertApproved": approve
             }), 200
         except Exception as e:
