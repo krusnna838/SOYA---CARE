@@ -1,54 +1,20 @@
-# SOYA-CARE security and reliability audit
+# SOYA-CARE security review — authentication hardening
 
-Audit branch: `soyacare-complete-repair`
-Base branch: `main`
-Scope reviewed: tracked frontend and backend source files visible in the repository tree, with targeted inspection of authentication, scan/report APIs, expert review, support tickets, admin APIs, image verification, inference fallback, and dashboard error handling.
+## Changes in this commit
+- Removed the hard-coded administrator password hash from application source. Admin bootstrap now requires private `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables (minimum 12 characters), or an operator must use `python manage.py create-admin`.
+- Public registration offers Farmer and Expert. Farmer accounts activate immediately. Expert applicants are stored as `PENDING_EXPERT`, receive no session token, and cannot sign in until an administrator approves them by promoting the account to `EXPERT`.
+- Server-side registration accepts only Farmer/Expert requests and never accepts ADMIN or arbitrary roles.
+- Login authorization uses the role stored in the database. Pending experts are blocked until approved.
+- Removed the Google OAuth fallback that trusted client-supplied email/name. Google login now requires a verified ID token and configured Google client ID.
+- Disabled Apple login until server-side Apple identity-token verification is implemented. Client-supplied profile fields are not authentication.
+- Increased public password minimum to 12 characters and maximum to 128 characters.
 
-## Changes made on this branch
+## Required production configuration
+1. Set stable, unique, high-entropy `SECRET_KEY` and `JWT_SECRET` values in Render backend environment variables.
+2. Set private `ADMIN_EMAIL` and `ADMIN_PASSWORD` (12+ characters) in Render, or securely run the management CLI. Never commit secrets.
+3. Set exact frontend origin(s) in `FRONTEND_ORIGIN` / `CORS_ORIGINS`; remove unused origins.
+4. Use a persistent database volume or managed PostgreSQL. SQLite on ephemeral storage can lose users and reports on redeploy.
+5. Configure HTTPS, backups, log retention, dependency updates, and provider credentials in hosting settings.
 
-1. **Prevented public privilege escalation**: public registration always creates a FARMER. EXPERT and ADMIN roles must be assigned through protected administrator provisioning/role-management.
-2. **Protected scan history**: scan/report list now requires authentication; farmers are scoped to their own records, while EXPERT/ADMIN can review the wider queue.
-3. **Protected expert review requests**: a signed-in farmer can request review only for their own report.
-4. **Protected expert decisions**: review endpoint requires EXPERT or ADMIN; it validates the report ID and only accepts pending review records. A negative decision is stored as rejected rather than reviewed.
-5. **Protected report detail and PDF**: requires authentication and report ownership, except EXPERT/ADMIN.
-6. **Protected support operations**: ticket list/create/reply/status endpoints require authentication; only ticket owners or EXPERT/ADMIN can reply; only EXPERT/ADMIN can change ticket status.
-7. **Restricted map data**: map report endpoint requires EXPERT/ADMIN and synthetic example map points were removed.
-8. **Removed a known default administrator password**: database initialization no longer seeds an account with a hard-coded password. Use a configured secret for bootstrap or the management CLI.
-9. **Removed fabricated AI outputs**: frontend no longer returns a hard-coded disease diagnosis when backend is offline; backend no longer reports a color heuristic as a trained disease classifier; local color screening now returns UNCERTAIN instead of claiming soybean species verification.
-10. **Corrected misleading UI success states**: farmer expert-request and expert-review screens now show API errors instead of claiming failed actions succeeded. Admin dashboard no longer displays fabricated analytics when API loading fails.
-11. **Updated backend authorization tests**: admin test account is provisioned directly in test setup, and tests cover public role escalation and unauthenticated scan-history access.
-
-## Important findings still requiring configuration or follow-up
-
-- **AI models are not verified by this code audit.** Configure valid Groq Vision and Roboflow credentials/model IDs in the backend hosting environment. Without them, the application will now return uncertain/unavailable rather than inventing a disease label.
-- **Species verification requires a real trained/hosted model.** A green-colour heuristic cannot distinguish soybean from other plants.
-- **Expert workflow needs end-to-end UI testing.** Confirm the expert queue displays only pending requests, the approve/reject controls match the backend semantics, and the farmer sees the final decision only after the expert action. Existing UI components still need a full browser run against the deployed database.
-- **Admin feature coverage is not complete.** Existing backend supports summary, user listing, role changes, and audit logs. User deletion, expert credential verification, system settings, backup/restore, and other privileged operations were not added because they need explicit product rules and careful safeguards.
-- **Persistence on Render must be checked.** If SQLite is stored on an ephemeral filesystem, records can be lost on redeploy/restart. Configure a persistent disk or move to managed PostgreSQL and migrate data before relying on production records.
-- **Secrets must be set in Render environment variables**: stable high-entropy `SECRET_KEY` and `JWT_SECRET`, Groq/Roboflow API keys, correct frontend origin/CORS, and database path. Never commit real secrets.
-- **Third-party OAuth** needs provider-side verification and configured client IDs; do not rely on placeholder/fallback identity payloads for production.
-- **Agronomic treatment content** should be reviewed against current local agricultural extension/ICAR recommendations and registered product labels before farmers act on it.
-
-## Verification status
-
-- GitHub source edits were committed to the repair branch.
-- Automated tests, TypeScript production build, live API authorization checks, and Render deployment have **not** been run from this environment.
-- Therefore this is a targeted code remediation and audit report, **not a certification that every application bug or vulnerability is fixed**.
-
-## Local validation commands
-
-Backend (from repository root):
-```cmd
-cd backend
-python -m pip install -r requirements.txt
-python -m pytest -q
-```
-
-Frontend:
-```cmd
-cd frontend
-npm ci
-npm run build
-```
-
-Test with separate FARMER, EXPERT, and ADMIN accounts. Confirm unauthenticated requests return 401, farmer access to another farmer's report returns 403, only EXPERT/ADMIN can approve/reject, and a failed API call never produces a success message.
+## Not certified / still needs verification
+This is a targeted source-level hardening pass, not a full penetration test. Automated pytest, frontend TypeScript build, live login/role checks, rate-limit testing, hosting configuration, database persistence, OAuth provider setup, and expert workflow end-to-end checks were not run here. Add request throttling / lockout and email verification before public production use. Verify expert credentials manually before promotion.
