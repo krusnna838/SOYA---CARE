@@ -17,6 +17,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [summaryData, setSummaryData] = useState<any | null>(null);
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [allUsersForTracking, setAllUsersForTracking] = useState<any[]>([]);
   const [pendingExperts, setPendingExperts] = useState<any[]>([]);
   const [processingExpertId, setProcessingExpertId] = useState<string | null>(null);
   const [ticketsList, setTicketsList] = useState<SupportTicket[]>([]);
@@ -39,6 +40,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     const tasks = [
       api.getAdminSummary().then(setSummaryData).catch((err) => console.warn('Admin summary unavailable:', err)),
       api.getAdminUsers(searchQuery).then(setUsersList).catch((err) => console.warn('Admin users unavailable:', err)),
+      api.getAdminUsers().then(setAllUsersForTracking).catch((err) => console.warn('Tracking user list unavailable:', err)),
       api.getPendingExpertApplications().then(setPendingExperts).catch((err) => console.warn('Expert applications unavailable:', err)),
       api.getScans().then(setAllScans).catch((err) => console.warn('Admin scans unavailable:', err)),
       api.getMapReports().then(setMapPoints).catch((err) => console.warn('Admin map unavailable:', err)),
@@ -526,7 +528,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       {/* TAB: COMPLETE ACTIVITY TRACKING — built from recorded backend data only */}
       {activeTab === 'tracking' && (() => {
         const events = [
-          ...usersList.map((item: any) => ({ type: 'Registration', title: item.name || 'New account', detail: `${item.role || 'USER'} · ${item.email || 'No email'}`, date: item.created_at, id: `user-${item.id || item.numeric_id}` })),
+          ...allUsersForTracking.map((item: any) => ({ type: 'Registration', title: item.name || 'New account', detail: `${item.role || 'USER'} · ${item.email || 'No email'}`, date: item.created_at, id: `user-${item.id || item.numeric_id}` })),
           ...allScans.map((item: any) => ({ type: 'Prediction', title: item.predictedDisease || item.disease || 'Crop scan', detail: `Farmer: ${item.farmerName || item.farmer_name || item.farmerId || 'Unknown'} · Confidence: ${Number(item.confidenceScore ?? item.confidence ?? 0) <= 1 ? (Number(item.confidenceScore ?? item.confidence ?? 0) * 100).toFixed(1) : Number(item.confidenceScore ?? item.confidence).toFixed(1)}%`, date: item.scannedAt || item.created_at, id: `scan-${item.id}` })),
           ...ticketsList.map((item: any) => ({ type: 'Support', title: item.subject || item.ticketCode || 'Farmer support request', detail: `${item.status || 'Open'} · ${item.farmerName || 'Farmer'} · ${item.ticketCode || item.id}`, date: item.createdAt || item.created_at, id: `ticket-${item.id}` })),
           ...auditLogs.map((item: any, index: number) => ({ type: 'Admin Action', title: item.action || 'Administrative event', detail: item.details || item.user_name || 'Recorded admin activity', date: item.created_at, id: `audit-${item.id || index}` })),
