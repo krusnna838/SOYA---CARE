@@ -36,8 +36,10 @@ def evaluate_final_decision(verification: dict, inference: dict) -> dict:
             "ai_disclaimer": "Automated verification rejected this image."
         }
 
-    # Policy Rule 2: Uncertain Leaf Verification
-    if verif_status == "UNCERTAIN" and verification.get("provider") == "groq_vision":
+    # Policy Rule 2: Uncertain species verification.
+    # A generic green-leaf heuristic cannot prove that the specimen is soybean;
+    # never produce a soybean disease label until the vision verification passes.
+    if verif_status == "UNCERTAIN":
         return {
             "success": True,
             "detected": False,
