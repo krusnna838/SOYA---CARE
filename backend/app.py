@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import logging
 import sqlite3
@@ -23,6 +24,55 @@ logging.basicConfig(
     format="[%(asctime)s] %(levelname)s in %(module)s: %(message)s"
 )
 logger = logging.getLogger("soybeancare")
+
+def bootstrap_admin_from_environment(app):
+    """Create the first admin from private environment variables, without overwriting accounts."""
+    email = str(app.config.get("ADMIN_EMAIL") or "").strip().lower()
+    name = str(app.config.get("ADMIN_NAME") or "SoybeanCare Administrator").strip()
+    password = str(app.config.get("ADMIN_PASSWORD") or "")
+
+    if not email and not password:
+        return
+    if not email or not password:
+        raise RuntimeError("ADMIN_EMAIL and ADMIN_PASSWORD must both be configured to bootstrap the first administrator.")
+    if len(name) < 2 or not re.fullmatch(r"[^@\\s]+@[^@\\s]+\\.[^@\\s]+", email):
+        raise RuntimeError("ADMIN_NAME or ADMIN_EMAIL is invalid.")
+    if len(password) < 12 or len(password) > 128:
+        raise RuntimeError("ADMIN_PASSWORD must contain between 12 and 128 characters.")
+
+    with app.app_context():
+        conn = get_db()
+        try:
+            # Serialize concurrent worker startups so only one can create the first admin.
+            conn.execute("BEGIN IMMEDIATE")
+            admin_count = conn.execute(
+                "SELECT COUNT(*) FROM users WHERE UPPER(role) = 'ADMIN'"
+            ).fetchone()[0]
+            if admin_count:
+                conn.rollback()
+                logger.info("Admin environment bootstrap skipped: an administrator already exists.")
+                return
+
+            existing = conn.execute(
+                "SELECT role FROM users WHERE LOWER(email) = ?", (email,)
+            ).fetchone()
+            if existing:
+                raise RuntimeError(
+                    "ADMIN_EMAIL already belongs to a non-admin account. "
+                    "No existing Farmer or Expert account was changed; use a different admin email."
+                )
+
+            conn.execute(
+                """INSERT INTO users (name, email, password_hash, role, created_at)
+                   VALUES (?, ?, ?, 'ADMIN', ?)""",
+                (name, email, generate_password_hash(password), datetime.now(timezone.utc).isoformat()),
+            )
+            conn.commit()
+            logger.info("Initial administrator account created from environment configuration.")
+        except Exception:
+            conn.rollback()
+            raise
+
 
 def create_app(test_config=None):
     app = Flask(__name__)
@@ -66,6 +116,9 @@ def create_app(test_config=None):
     # Initialize DB tables
     with app.app_context():
         init_db(app)
+
+    # Optional one-time first-admin bootstrap from private Render environment variables.
+    bootstrap_admin_from_environment(app)
 
     # ---------------------------------------------------------
     # Authentication Helpers
