@@ -13,7 +13,7 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'predictions' | 'map' | 'users' | 'tickets' | 'model' | 'audit'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'predictions' | 'map' | 'users' | 'tickets' | 'model' | 'audit' | 'tracking'>('analytics');
   const [loading, setLoading] = useState(true);
   const [summaryData, setSummaryData] = useState<any | null>(null);
   const [usersList, setUsersList] = useState<any[]>([]);
@@ -29,6 +29,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [allScans, setAllScans] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [selectedMapPoint, setSelectedMapPoint] = useState<any | null>(null);
+  const [trackingSearch, setTrackingSearch] = useState('');
+  const [trackingType, setTrackingType] = useState('All');
 
   const loadAdminData = async () => {
     setLoading(true);
@@ -139,7 +141,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
             { id: 'users', label: 'Farmer RBAC' },
             { id: 'tickets', label: `Farmer Queries (${ticketsList.filter(t => t.status === 'Open').length || 0})` },
             { id: 'model', label: 'AI Health' },
-            { id: 'audit', label: 'Audit Logs' }
+            { id: 'audit', label: 'Audit Logs' },
+            { id: 'tracking', label: 'All Tracking' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -519,6 +522,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           </div>
         </div>
       )}
+
+      {/* TAB: COMPLETE ACTIVITY TRACKING — built from recorded backend data only */}
+      {activeTab === 'tracking' && (() => {
+        const events = [
+          ...usersList.map((item: any) => ({ type: 'Registration', title: item.name || 'New account', detail: `${item.role || 'USER'} · ${item.email || 'No email'}`, date: item.created_at, id: `user-${item.id || item.numeric_id}` })),
+          ...allScans.map((item: any) => ({ type: 'Prediction', title: item.predictedDisease || item.disease || 'Crop scan', detail: `Farmer: ${item.farmerName || item.farmer_name || item.farmerId || 'Unknown'} · Confidence: ${Number(item.confidenceScore ?? item.confidence ?? 0) <= 1 ? (Number(item.confidenceScore ?? item.confidence ?? 0) * 100).toFixed(1) : Number(item.confidenceScore ?? item.confidence).toFixed(1)}%`, date: item.scannedAt || item.created_at, id: `scan-${item.id}` })),
+          ...ticketsList.map((item: any) => ({ type: 'Support', title: item.subject || item.ticketCode || 'Farmer support request', detail: `${item.status || 'Open'} · ${item.farmerName || 'Farmer'} · ${item.ticketCode || item.id}`, date: item.createdAt || item.created_at, id: `ticket-${item.id}` })),
+          ...auditLogs.map((item: any, index: number) => ({ type: 'Admin Action', title: item.action || 'Administrative event', detail: item.details || item.user_name || 'Recorded admin activity', date: item.created_at, id: `audit-${item.id || index}` })),
+        ].filter((event: any) => event.date && !Number.isNaN(new Date(event.date).getTime())).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const visible = events.filter((event: any) => (trackingType === 'All' || event.type === trackingType) && (!trackingSearch || `${event.title} ${event.detail} ${event.type}`.toLowerCase().includes(trackingSearch.toLowerCase())));
+        return (
+          <section className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div><h3 className="text-lg font-bold text-slate-900 dark:text-white">Complete Platform Activity Tracking</h3><p className="text-xs text-slate-500">One timeline for account registrations, crop predictions, farmer support and administrative actions. Only recorded backend events are shown.</p></div>
+              <div className="flex gap-2"><input value={trackingSearch} onChange={(e) => setTrackingSearch(e.target.value)} placeholder="Search activity..." className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"/><button onClick={loadAdminData} className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">Refresh</button></div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {['All','Registration','Prediction','Support','Admin Action'].map((type) => <button key={type} onClick={() => setTrackingType(type)} className={`rounded-xl p-3 text-left border text-xs font-bold ${trackingType === type ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}><span>{type}</span><span className="block text-lg mt-1">{type === 'All' ? events.length : events.filter((event: any) => event.type === type).length}</span></button>)}
+            </div>
+            {visible.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center text-sm text-slate-500">No recorded activity matches this filter.</div> : <div className="space-y-2 max-h-[620px] overflow-y-auto pr-1">{visible.map((event: any) => <article key={event.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-slate-200 dark:border-slate-700 p-4"><div className="min-w-0"><div className="flex items-center gap-2 mb-1"><span className="rounded-full bg-emerald-500/10 text-emerald-600 px-2 py-1 text-[10px] font-bold">{event.type}</span><h4 className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">{event.title}</h4></div><p className="text-xs text-slate-500 break-words">{event.detail}</p></div><time className="text-[11px] text-slate-400 whitespace-nowrap">{new Date(event.date).toLocaleString()}</time></article>)}</div>}
+            <p className="text-[11px] text-slate-400">Tracking coverage depends on the records currently returned by the backend APIs. This view does not invent missing history or change login/prediction workflows.</p>
+          </section>
+        );
+      })()}
 
       {/* TAB: FARMER QUERIES & TICKETS */}
       {activeTab === 'tickets' && (
