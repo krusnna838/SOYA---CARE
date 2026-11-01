@@ -9,7 +9,7 @@ interface ExpertDashboardProps {
 }
 
 export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans }) => {
-  const [activeScan, setActiveScan] = useState<DiseaseScan | null>(scans[1] || scans[0] || null);
+  const [activeScan, setActiveScan] = useState<DiseaseScan | null>(scans[0] || null);
   const [expertNote, setExpertNote] = useState('');
   const [customDisease, setCustomDisease] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -23,7 +23,7 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
     try {
       await api.expertReview({
         scanId: activeScan.id,
-        expertNotes: expertNote || 'Diagnosis verified and approved by Certified Agronomist.',
+        expertNotes: expertNote,
         approve,
         customDisease: customDisease || activeScan.predictedDisease
       });
@@ -70,7 +70,7 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
           <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full border border-emerald-500 object-cover" />
           <div>
             <p className="font-bold text-slate-800 dark:text-slate-100">{user.name}</p>
-            <p className="text-[11px] text-emerald-600 dark:text-emerald-400">Senior Agronomist</p>
+            <p className="text-[11px] text-emerald-600 dark:text-emerald-400">{user.role === 'EXPERT' ? 'Verified Expert Account' : user.role}</p>
           </div>
         </div>
       </div>
