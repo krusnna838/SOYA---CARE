@@ -85,7 +85,7 @@ export const api = {
     }
   },
 
-  async register(formData: any): Promise<{ token: string; user: User }> {
+  async register(formData: any): Promise<{ token?: string; user: User; pendingApproval?: boolean }> {
     try {
       const res = await fetchWithAuth(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
