@@ -89,9 +89,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab, onOpenA
       <section className="relative min-h-[560px] flex items-center justify-center overflow-hidden border-b border-emerald-950/20">
         
         {/* Real Agricultural Background Image */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url('https://images.unsplash.com/photo-1625246333195-78d9c38ad449?auto=format&fit=crop&w=1920&q=80')` }}
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-950 via-green-900 to-slate-950" aria-hidden="true" />
+        <img
+          src="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?auto=format&fit=crop&w=1920&q=80"
+          alt="Green agricultural field"
+          className="absolute inset-0 h-full w-full object-cover object-center"
+          onError={(event) => { event.currentTarget.style.display = 'none'; }}
         />
         
         {/* Deep Forest Green Gradient Mask for Clean Contrast */}
