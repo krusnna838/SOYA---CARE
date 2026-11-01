@@ -186,7 +186,7 @@ def run_disease_inference(image_buffer: io.BytesIO) -> dict:
             response = client.chat.completions.create(
                 model=(Config.GROQ_VISION_MODEL if Config.GROQ_VISION_MODEL.startswith("qwen/") else "qwen/qwen3.8-27b"),
                 temperature=0.0,
-                max_completion_tokens=350,
+                max_completion_tokens=800,
                 response_format={"type": "json_object"},
                 messages=[
                     {
@@ -247,5 +247,5 @@ def run_disease_inference(image_buffer: io.BytesIO) -> dict:
         "model_id": Config.ROBOFLOW_MODEL_ID,
         "predictions": [],
         "top_prediction": None,
-        "error": "No AI disease classifier is configured or the configured AI providers are temporarily unavailable."
+        "error": "No AI classifier result. Check Render logs for the Roboflow/Groq request error and verify the configured API key, model access, and quota."
     }
