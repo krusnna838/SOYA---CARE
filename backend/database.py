@@ -29,7 +29,7 @@ def close_db(exc=None):
         db.close()
 
 def init_db(app=None):
-    """Initialize database tables and seed baseline diseases and default admin if missing."""
+    """Initialize database tables and seed the baseline disease catalog."""
     from flask import current_app
     try:
         app_ctx = app or (current_app._get_current_object() if current_app else None)
