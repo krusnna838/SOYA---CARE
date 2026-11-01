@@ -732,14 +732,6 @@ def create_app(test_config=None):
             ORDER BY r.id DESC LIMIT 500
         """).fetchall()
         points = [dict(r) for r in rows]
-        # If no geocoded points in DB yet, provide realistic regional soybean basin points
-        if not points:
-            points = [
-                {"id": 1, "disease": "Septoria Brown Spot", "confidence": 0.94, "latitude": 22.7196, "longitude": 75.8577, "location_name": "Indore Agri Belt, MP", "farmer_name": "Rajesh Kumar", "created_at": datetime.now(timezone.utc).isoformat()},
-                {"id": 2, "disease": "Asian Soybean Rust", "confidence": 0.89, "latitude": 23.2599, "longitude": 77.4126, "location_name": "Bhopal Soybean Farm, MP", "farmer_name": "Suresh Patel", "created_at": datetime.now(timezone.utc).isoformat()},
-                {"id": 3, "disease": "Healthy Soybean Leaf", "confidence": 0.98, "latitude": 21.1458, "longitude": 79.0882, "location_name": "Nagpur Soya Zone, MH", "farmer_name": "Anil Deshmukh", "created_at": datetime.now(timezone.utc).isoformat()},
-                {"id": 4, "disease": "Bacterial Blight", "confidence": 0.91, "latitude": 20.9374, "longitude": 77.7796, "location_name": "Amravati Soybean Fields, MH", "farmer_name": "Vikram Shinde", "created_at": datetime.now(timezone.utc).isoformat()}
-            ]
         return jsonify({"points": points}), 200
 
     @app.route("/api/weather", methods=["GET"])
