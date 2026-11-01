@@ -136,7 +136,8 @@ export const api = {
   async getMe(): Promise<User | null> {
     const token = tokenStorage.get();
     if (!token || token === 'mock-jwt-token') {
-      return tokenStorage.getUser();
+      tokenStorage.remove();
+      return null;
     }
     try {
       const res = await fetchWithAuth(`${API_BASE_URL}/auth/me`);
@@ -147,10 +148,13 @@ export const api = {
           return data.user;
         }
       }
+      // Never trust a cached profile when the API rejects the session.
+      tokenStorage.remove();
+      return null;
     } catch (e) {
       console.warn('Could not verify session with backend:', e);
+      return null;
     }
-    return tokenStorage.getUser();
   },
 
   async updateProfile(profileData: any): Promise<User> {
