@@ -452,6 +452,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                         className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs"
                       >
                         <option value="FARMER">FARMER</option>
+                        <option value="PENDING_EXPERT">PENDING_EXPERT (Awaiting Approval)</option>
                         <option value="EXPERT">EXPERT</option>
                         <option value="ADMIN">ADMIN</option>
                       </select>
