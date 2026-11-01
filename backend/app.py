@@ -32,9 +32,13 @@ def create_app(test_config=None):
         app.config.update(test_config)
 
     # Initialize CORS
+    allowed_origins = list(dict.fromkeys(
+        origin.rstrip("/") for origin in (app.config["CORS_ORIGINS"] + [app.config["FRONTEND_ORIGIN"]])
+        if origin and origin != "*"
+    ))
     CORS(
         app,
-        resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"] + [app.config["FRONTEND_ORIGIN"], "*"]}},
+        resources={r"/api/*": {"origins": allowed_origins}},
         supports_credentials=True
     )
 
@@ -410,12 +414,13 @@ def create_app(test_config=None):
             except (ValueError, TypeError):
                 lat = lon = None
 
-            # Persist Report in Database if user is authenticated or guest
+            # Persist reports only for authenticated users; never attach guest data
+            # to an unrelated first account in the database.
             report_id = None
             user = current_user()
-            user_id = user["id"] if user else 1  # Fallback to demo/first user
+            user_id = user["id"] if user else None
 
-            if decision.get("detected"):
+            if decision.get("detected") and user_id is not None:
                 cur = get_db().execute(
                     """INSERT INTO reports 
                        (user_id, disease, confidence, explanation, causes_json, actions_json, fertilizer_note,
