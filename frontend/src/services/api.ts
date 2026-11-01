@@ -179,60 +179,16 @@ export const api = {
     latitude?: number,
     longitude?: number
   ): Promise<{ success: boolean; scan?: DiseaseScan; [key: string]: any }> {
-    try {
-      const res = await fetchWithAuth(`${API_BASE_URL}/predict`, {
-        method: 'POST',
-        body: JSON.stringify({ imageBase64, location, latitude, longitude }),
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'AI prediction failed.');
-    } catch (e: any) {
-      if (e.message && e.message !== 'Failed to fetch') {
-        throw e;
-      }
-      console.warn('Backend API offline, processing scan with local demo model:', e);
-      // Fallback preview
-      const scan: DiseaseScan = {
-        id: `scan-${Math.floor(1000 + Math.random() * 9000)}`,
-        farmerId: 'u1',
-        farmerName: 'Rajesh Kumar',
-        imageUrl: imageBase64 || 'https://images.unsplash.com/photo-1592417817098-8f3d6eb1b7a5?auto=format&fit=crop&w=800&q=80',
-        predictedDisease: 'Septoria Brown Spot',
-        confidenceScore: 0.94,
-        severity: 'medium',
-        scannedAt: new Date().toISOString(),
-        location: location || 'Indore, MP (22.7196° N, 75.8577° E)',
-        status: 'reviewed',
-        diseaseDetails: {
-          id: 'd1',
-          name: 'Septoria Brown Spot',
-          scientificName: 'Septoria glycines',
-          severity: 'medium',
-          affectedStage: 'V3 to R6 (Vegetative to Pod Fill)',
-          symptoms: 'Small brown irregular spots on lower leaves with yellowing and early leaf drop.',
-          causes: 'Fungal pathogen surviving in crop residue, promoted by warm humid weather.',
-          treatment: {
-            chemical: 'Apply Quadris (Azoxystrobin) or Headline EC at early onset.',
-            organic: 'Apply Copper Octanoate organic soap or Neem oil foliar spray.'
-          },
-          recommendedPesticides: [
-            { name: 'Headline EC (Pyraclostrobin)', dosage: '6 - 12 fl oz/acre', timing: 'R1 to R3 Growth Stage' },
-            { name: 'Quadris (Azoxystrobin)', dosage: '6.0 - 15.5 fl oz/acre', timing: 'At early disease onset' }
-          ],
-          organicSolution: 'Foliar application of Bacillus subtilis strain QST 713.',
-          preventiveTips: [
-            'Rotate fields with non-host crops like Corn for 2 years.',
-            'Utilize pathogen-free certified seeds.',
-            'Ensure good field canopy airflow.'
-          ],
-          images: ['https://images.unsplash.com/photo-1592417817098-8f3d6eb1b7a5?auto=format&fit=crop&w=800&q=80']
-        }
-      };
-      return { success: true, scan };
+    const res = await fetchWithAuth(`${API_BASE_URL}/predict`, {
+      method: 'POST',
+      body: JSON.stringify({ imageBase64, location, latitude, longitude }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || `AI prediction failed (HTTP ${res.status}).`);
     }
+    // Never fabricate a disease result when the backend/model is unavailable.
+    return data;
   },
 
   // -------------------------------------------------------------
