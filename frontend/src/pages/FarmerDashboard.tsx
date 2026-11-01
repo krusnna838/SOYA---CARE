@@ -297,7 +297,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
               </button>
             </div>
 
-            {currentWeather && (
+            {currentWeather ? (
               <>
                 <div className="flex items-center justify-between">
                   <div>
@@ -340,6 +340,8 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
                   <strong>Spray Advisory:</strong> {currentWeather.sprayAdvisory}
                 </div>
               </>
+            ) : (
+              <p className="text-xs text-slate-500 py-5 text-center">Live weather data is unavailable. Use Live GPS to request current conditions.</p>
             )}
           </div>
 
