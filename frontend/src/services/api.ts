@@ -18,21 +18,31 @@ const TOKEN_KEY = 'soybeancare_auth_token';
 const USER_KEY = 'soybeancare_user_profile';
 
 export const tokenStorage = {
-  get: (): string | null => localStorage.getItem(TOKEN_KEY),
-  set: (token: string) => localStorage.setItem(TOKEN_KEY, token),
+  get: (): string | null =>
+    sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY),
+  set: (token: string, rememberMe = true) => {
+    tokenStorage.remove();
+    const storage = rememberMe ? localStorage : sessionStorage;
+    storage.setItem(TOKEN_KEY, token);
+  },
   remove: () => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
   },
   getUser: (): User | null => {
     try {
-      const u = localStorage.getItem(USER_KEY);
-      return u ? JSON.parse(u) : null;
+      const raw = sessionStorage.getItem(USER_KEY) || localStorage.getItem(USER_KEY);
+      return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
     }
   },
-  setUser: (user: User) => localStorage.setItem(USER_KEY, JSON.stringify(user))
+  setUser: (user: User) => {
+    const storage = sessionStorage.getItem(TOKEN_KEY) ? sessionStorage : localStorage;
+    storage.setItem(USER_KEY, JSON.stringify(user));
+  }
 };
 
 async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
@@ -58,7 +68,7 @@ export const api = {
   // -------------------------------------------------------------
   // AUTHENTICATION
   // -------------------------------------------------------------
-  async login(email: string, password: string, role?: string): Promise<{ token: string; user: User }> {
+  async login(email: string, password: string, role?: string, rememberMe = true): Promise<{ token: string; user: User }> {
     try {
       const res = await fetchWithAuth(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
@@ -67,7 +77,7 @@ export const api = {
       if (res.ok) {
         const data = await res.json();
         if (data.token) {
-          tokenStorage.set(data.token);
+          tokenStorage.set(data.token, rememberMe);
           tokenStorage.setUser(data.user);
         }
         return data;
