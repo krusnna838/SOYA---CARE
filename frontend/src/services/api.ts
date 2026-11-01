@@ -398,29 +398,10 @@ export const api = {
       const res = await fetchWithAuth(`${API_BASE_URL}/schemes${q}`);
       if (res.ok) {
         const data = await res.json();
-        return data.schemes;
+        return Array.isArray(data.schemes) ? data.schemes : [];
       }
-    } catch (e) {}
-    return [
-      {
-        id: 's-pmfby',
-        title: 'Pradhan Mantri Fasal Bima Yojana (PMFBY)',
-        state: 'All India (National)',
-        description: 'Comprehensive risk insurance coverage for soybean farmers suffering crop loss or damage.',
-        subsidy: 'Farmers pay only 2% premium rate for Kharif soybean.',
-        link: 'https://pmfby.gov.in',
-        officialUrl: 'https://pmfby.gov.in/'
-      },
-      {
-        id: 's-smam',
-        title: 'Sub-Mission on Agricultural Mechanization (SMAM)',
-        state: 'All India (National)',
-        description: 'Subsidies for AI precision sprayers, boom sprayers, and electronic soil testing meters.',
-        subsidy: '40% to 50% subsidy for individual farmers.',
-        link: 'https://agrimachinery.nic.in',
-        officialUrl: 'https://agrimachinery.nic.in/'
-      }
-    ];
+    } catch (e) { console.warn('Government schemes service unavailable:', e); }
+    return [];
   },
 
   // -------------------------------------------------------------
