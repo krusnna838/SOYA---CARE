@@ -34,7 +34,7 @@ class Config:
     # External AI APIs
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-    GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "llama-3.2-11b-vision-preview")
+    GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b")
     
     ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY")
     ROBOFLOW_MODEL_ID = os.getenv("ROBOFLOW_MODEL_ID", "soybean-crop-disease/6")
