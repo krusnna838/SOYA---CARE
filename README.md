@@ -40,7 +40,7 @@ The SQLite database (`backend/soybeancare.db`) includes initialized accounts:
 
 1. **Stage A — Image Validation:** File magic byte inspection (`JPEG`, `PNG`, `WEBP`), EXIF phone camera rotation normalization, 10MB limit enforcement, thumbnail generation.
 2. **Stage B — Soybean Leaf Verification:** Groq Vision API inspection for trifoliolate leaf structure and morphology. Rejects non-soybean images (faces, animals, vehicles, irrelevant plants).
-3. **Stage C — Disease Classification:** Roboflow Inference SDK (`soybean-crop-disease/6`) with botanical calibrated fallback.
+3. **Stage C — Disease Classification:** Roboflow hosted inference first, with Groq vision (`qwen/qwen3.8-27b`) as an AI disease-classification fallback.
 4. **Stage D — Cross-Checking & Final Decision:** Rule-based decision engine (`PRELIMINARY_PREDICTION`, `NOT_SOYBEAN_LEAF`, `UNCERTAIN`, `LOW_CONFIDENCE`) preventing false certainty.
 
 ---
