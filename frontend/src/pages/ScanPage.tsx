@@ -251,8 +251,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
       setExpertRequested(true);
       alert("Consultation request successfully logged! Your scan has been queued for phytopathology expert review.");
     } catch (e: any) {
-      alert("Consultation request logged for district agronomist review.");
-      setExpertRequested(true);
+      alert("Could not submit the expert review request: " + (e?.message || "Please sign in and try again."));
     } finally {
       setRequestingExpert(false);
     }
