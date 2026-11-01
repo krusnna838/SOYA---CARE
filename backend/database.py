@@ -158,7 +158,9 @@ def init_db(app=None):
         # Seed initial admin if specified
         import os
         admin_email = os.getenv("ADMIN_EMAIL", "admin@soybeancare.ai").strip().lower()
-        admin_pass = os.getenv("ADMIN_PASSWORD", "SoybeanAdmin2026!")
+        # Never ship a known default administrator password. Configure ADMIN_PASSWORD
+        # explicitly for one-time bootstrap, or use manage.py create-admin.
+        admin_pass = os.getenv("ADMIN_PASSWORD", "").strip()
         admin_name = os.getenv("ADMIN_NAME", "SoybeanCare Admin").strip()
         
         if admin_email and admin_pass:
