@@ -486,6 +486,41 @@ def create_app(test_config=None):
                     }
                 }
 
+            # Guest users can see the completed AI result too. Only signed-in
+            # users receive a persistent report ID and report-history entry.
+            if decision.get("detected") and "scan" not in decision:
+                preview_id = f"preview-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
+                disease_name = decision["disease"]
+                decision["scan"] = {
+                    "id": preview_id,
+                    "farmerId": "guest",
+                    "farmerName": "Guest Farmer",
+                    "imageUrl": thumbnail_b64,
+                    "predictedDisease": disease_name,
+                    "confidenceScore": decision["confidence"],
+                    "severity": "critical" if "rust" in disease_name.lower() else "medium",
+                    "scannedAt": datetime.now(timezone.utc).isoformat(),
+                    "location": loc_name + (f" ({lat:.4f}° N, {lon:.4f}° E)" if lat is not None and lon is not None else ""),
+                    "status": "preview",
+                    "diseaseDetails": {
+                        "id": preview_id,
+                        "name": disease_name,
+                        "scientificName": decision.get("scientific_name", "Glycine max foliar condition"),
+                        "severity": "critical" if "rust" in disease_name.lower() else "medium",
+                        "affectedStage": "V3 to R6 (Vegetative to Pod Fill)",
+                        "symptoms": decision.get("symptoms", "Foliar symptoms visible on leaf surface."),
+                        "causes": " ".join(decision.get("causes", [])),
+                        "treatment": {
+                            "chemical": "Confirm locally registered treatment with an agricultural expert.",
+                            "organic": "Discuss suitable biological options with a local agricultural expert."
+                        },
+                        "recommendedPesticides": [],
+                        "organicSolution": "Seek locally validated biological guidance.",
+                        "preventiveTips": decision.get("actions", []),
+                        "images": [thumbnail_b64]
+                    }
+                }
+
             return jsonify(decision), 200
 
         except ValueError as val_err:
