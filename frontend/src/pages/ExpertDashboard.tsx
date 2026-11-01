@@ -37,8 +37,7 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
         activeScan.predictedDisease = customDisease;
       }
     } catch (e: any) {
-      alert(`Review recorded: ${e.message || 'Updated'}`);
-      activeScan.status = 'reviewed';
+      alert(`Could not save the expert review: ${e.message || 'Please try again.'}`);
     } finally {
       setSubmitting(false);
     }
