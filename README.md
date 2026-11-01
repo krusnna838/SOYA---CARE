@@ -27,9 +27,11 @@ Or run them individually:
 
 ## 🔐 Account provisioning and security
 
-There are no public default administrator or demo-user credentials. Create the first administrator using private hosting environment variables (`ADMIN_EMAIL` and `ADMIN_PASSWORD`, minimum 12 characters) or run `python manage.py create-admin` in a trusted deployment environment. Never commit passwords, API keys, or production secrets.
+There are no public default administrator or demo-user credentials. To create the first administrator on Render, set the private environment variables `ADMIN_EMAIL`, `ADMIN_NAME` (optional), and `ADMIN_PASSWORD` (12–128 characters). On startup, the backend creates this account only if no administrator exists. It never promotes or overwrites an existing Farmer or Expert account, and it never resets an existing administrator's password. Alternatively, run `python manage.py create-admin --name "SoybeanCare Administrator" --email "admin@example.com"` in the trusted Render Shell; the password is entered interactively and is not exposed in shell history.
 
-Public registration is limited to Farmer and Expert applications. Expert accounts remain pending until an administrator verifies and approves them. Admin accounts must be provisioned by an operator.
+After first-admin creation, you may remove `ADMIN_PASSWORD` from Render only if the database is persistent. Configure a Render persistent disk and set `DATABASE_PATH` to a file on that disk (for example `/var/data/soybeecare.db`), otherwise SQLite accounts can be lost when the service is redeployed or restarted. Never commit passwords, API keys, or production secrets. If a password has appeared in a screenshot or chat, replace it with a new unique password.
+
+Public registration is limited to Farmer and Expert applications. Expert accounts remain pending until an administrator verifies and approves them. Admin accounts cannot be registered publicly.
 
 ## 🧬 4-Stage Image Analysis Pipeline
 
