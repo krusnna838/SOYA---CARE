@@ -227,7 +227,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
             <div className="space-y-3 pt-2">
               {summaryData?.disease_distribution?.map((item: any, idx: number) => {
-                const total = summaryData.reports || 412;
+                const total = summaryData.reports ?? 0;
                 const pct = Math.round((item.count / total) * 100);
                 return (
                   <div key={idx} className="space-y-1">
@@ -325,20 +325,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
             <div className="relative w-full h-full rounded-xl border border-emerald-500/20 overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/40 p-6 flex flex-col justify-between">
               
               <div className="flex items-center justify-between text-xs text-emerald-400 font-mono">
-                <span>REGION: CENTRAL SOYBEAN BASIN (INDORE - NAGPUR - AMRAVATI)</span>
+                <span>GPS-LOCATED FARMER REPORTS</span>
                 <span>GEO-DATUM: WGS84</span>
               </div>
 
               {/* Pinpoint Markers */}
               <div className="relative w-full h-72">
-                {mapPoints.map((pt, idx) => {
+                {mapPoints.filter((pt: any) => Number.isFinite(Number(pt.latitude)) && Number.isFinite(Number(pt.longitude))).map((pt: any, idx: number) => {
                   const isRust = pt.disease?.toLowerCase().includes('rust');
                   const isHealthy = pt.disease?.toLowerCase().includes('healthy');
                   const pinColor = isRust ? 'bg-rose-500' : isHealthy ? 'bg-emerald-500' : 'bg-amber-500';
                   
-                  // Simple relative coordinate projection across canvas
-                  const leftPct = 25 + ((idx * 18) % 65);
-                  const topPct = 20 + ((idx * 22) % 60);
+                  const geoPoints = mapPoints.filter((point: any) => Number.isFinite(Number(point.latitude)) && Number.isFinite(Number(point.longitude)));
+                  const lats = geoPoints.map((point: any) => Number(point.latitude));
+                  const lons = geoPoints.map((point: any) => Number(point.longitude));
+                  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+                  const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+                  const leftPct = 8 + (maxLon === minLon ? 42 : ((Number(pt.longitude) - minLon) / (maxLon - minLon)) * 84);
+                  const topPct = 8 + (maxLat === minLat ? 42 : ((maxLat - Number(pt.latitude)) / (maxLat - minLat)) * 84);
 
                   return (
                     <div
