@@ -321,7 +321,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
             {/* Background Grid Pattern */}
             <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px]" />
 
-            {/* Simulated Regional Basemap Card */}
+            {/* GPS report visualization; no fabricated basemap or coordinates. */}
             <div className="relative w-full h-full rounded-xl border border-emerald-500/20 overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/40 p-6 flex flex-col justify-between">
               
               <div className="flex items-center justify-between text-xs text-emerald-400 font-mono">
@@ -330,7 +330,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
               </div>
 
               {/* Pinpoint Markers */}
-              <div className="relative w-full h-72">
+              {mapPoints.filter((pt: any) => Number.isFinite(Number(pt.latitude)) && Number.isFinite(Number(pt.longitude))).length === 0 ? <div className="relative w-full h-72 flex items-center justify-center text-center text-sm text-slate-400">No farmer reports with GPS coordinates are available.</div> : <div className="relative w-full h-72">
                 {mapPoints.filter((pt: any) => Number.isFinite(Number(pt.latitude)) && Number.isFinite(Number(pt.longitude))).map((pt: any, idx: number) => {
                   const isRust = pt.disease?.toLowerCase().includes('rust');
                   const isHealthy = pt.disease?.toLowerCase().includes('healthy');
@@ -360,7 +360,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                     </div>
                   );
                 })}
-              </div>
+              </div>}
 
               {/* Selected Pin Details Bar */}
               {selectedMapPoint ? (
