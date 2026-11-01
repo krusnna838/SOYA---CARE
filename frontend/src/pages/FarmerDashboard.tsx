@@ -15,6 +15,7 @@ interface FarmerDashboardProps {
   onOpenReportModal: (scan: DiseaseScan) => void;
   onNavigateTab: (tab: string) => void;
   onOpenProfile: () => void;
+  onRefreshScans?: () => Promise<void> | void;
 }
 
 export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
@@ -24,7 +25,8 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   schemes: initialSchemes,
   onOpenReportModal,
   onNavigateTab,
-  onOpenProfile
+  onOpenProfile,
+  onRefreshScans
 }) => {
   const healthyCount = scans.filter(s => s.predictedDisease?.toLowerCase().includes('healthy')).length;
   const diseaseCount = scans.length - healthyCount;
@@ -190,12 +192,17 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
                 <FileText className="w-4 h-4 text-emerald-600" />
                 <span>Field Health Scan History</span>
               </h3>
+              <div className="flex items-center gap-3">
+              <button onClick={() => onRefreshScans?.()} className="text-xs text-slate-500 hover:text-emerald-600 font-semibold inline-flex items-center gap-1" title="Refresh prediction history">
+                <RefreshCw className="w-3.5 h-3.5" /> Refresh
+              </button>
               <button
                 onClick={() => onNavigateTab('scan')}
                 className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
               >
                 Scan Leaf Now &rarr;
               </button>
+              </div>
             </div>
 
             {scans.length === 0 ? (
