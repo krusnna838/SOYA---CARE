@@ -386,7 +386,8 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
     try {
       await api.requestExpertReview(scanResult.id, `Manual verification requested for ${scanResult.predictedDisease}`);
       setExpertRequested(true);
-      alert("Consultation request successfully logged! Your scan has been queued for phytopathology expert review.");
+      await onScanComplete?.();
+      alert("Your request has been submitted. It is now visible in the expert review queue and admin consultation desk.");
     } catch (e: any) {
       alert("Could not submit the expert review request: " + (e?.message || "Please sign in and try again."));
     } finally {
@@ -747,14 +748,17 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
                 </button>
 
                 {user && rawApiResponse?.report_id && (
-                  <button
-                    onClick={handleRequestExpert}
-                    disabled={requestingExpert || expertRequested}
-                    className="py-3.5 rounded-xl glass-card text-slate-800 dark:text-slate-200 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-800 transition-all border border-slate-300 dark:border-slate-700 flex items-center justify-center space-x-2 disabled:opacity-60"
-                  >
-                    <UserCheck className="w-4 h-4 text-emerald-500" />
-                    <span>{expertRequested ? "Review Requested" : requestingExpert ? "Logging Request..." : "Request Agronomist Review"}</span>
-                  </button>
+                  <div className="flex-1 space-y-1">
+                    <button
+                      onClick={handleRequestExpert}
+                      disabled={requestingExpert || expertRequested}
+                      className="w-full py-3.5 rounded-xl glass-card text-slate-800 dark:text-slate-200 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-800 transition-all border border-slate-300 dark:border-slate-700 flex items-center justify-center space-x-2 disabled:opacity-60"
+                    >
+                      <UserCheck className="w-4 h-4 text-emerald-500" />
+                      <span>{expertRequested ? "Expert Advice Requested" : requestingExpert ? "Submitting Request..." : "Request Expert Advice"}</span>
+                    </button>
+                    <p className="text-[10px] leading-relaxed text-slate-500 text-center">Your leaf photo and AI report enter the expert review queue. Admin can track the request status.</p>
+                  </div>
                 )}
               </div>
 
