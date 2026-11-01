@@ -17,7 +17,7 @@ def main():
     admin_parser = subparsers.add_parser("create-admin", help="Create a new administrator user.")
     admin_parser.add_argument("--name", default="SoybeanCare Administrator", help="Admin Full Name")
     admin_parser.add_argument("--email", required=True, help="Admin Email")
-    admin_parser.add_argument("--password", required=True, help="Admin Password (min 8 chars)")
+    admin_parser.add_argument("--password", required=True, help="Admin Password (min 12 chars)")
 
     args = parser.parse_args()
 
@@ -29,7 +29,7 @@ def main():
 
         elif args.command == "create-admin":
             if len(args.password) < 8:
-                print("Error: Password must contain at least 8 characters.")
+                print("Error: Password must contain at least 12 characters.")
                 sys.exit(1)
 
             email = args.email.strip().lower()
