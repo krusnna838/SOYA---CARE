@@ -17,6 +17,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [summaryData, setSummaryData] = useState<any | null>(null);
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [pendingExperts, setPendingExperts] = useState<any[]>([]);
+  const [processingExpertId, setProcessingExpertId] = useState<string | null>(null);
   const [ticketsList, setTicketsList] = useState<SupportTicket[]>([]);
   const [ticketSearch, setTicketSearch] = useState('');
   const [ticketStatusFilter, setTicketStatusFilter] = useState<'All' | 'Open' | 'In Progress' | 'Resolved'>('All');
@@ -30,41 +32,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
   const loadAdminData = async () => {
     setLoading(true);
-    try {
-      const summary = await api.getAdminSummary();
-      setSummaryData(summary);
-
-      const users = await api.getAdminUsers(searchQuery);
-      setUsersList(users);
-
-      const scans = await api.getScans();
-      setAllScans(scans);
-
-      const points = await api.getMapReports();
-      setMapPoints(points);
-
-      const logs = await api.getAdminAuditLogs();
-      setAuditLogs(logs);
-
-      const tickets = await api.getTickets();
-      setTicketsList(tickets);
-    } catch (err) {
-      console.warn("Could not load complete admin data from backend:", err);
-      setSummaryData(null);
-      setUsersList([]);
-      setMapPoints([]);
-      setAllScans([]);
-      setAuditLogs([]);
-      setTicketsList([]);
-      alert("Admin data could not be loaded. Check backend availability and your admin permissions.");
-    } finally {
-      setLoading(false);
-    }
+    // Load each panel independently. A failure in optional analytics, map, or
+    // ticket endpoints must never hide the user directory or expert requests.
+    const tasks = [
+      api.getAdminSummary().then(setSummaryData).catch((err) => console.warn('Admin summary unavailable:', err)),
+      api.getAdminUsers(searchQuery).then(setUsersList).catch((err) => console.warn('Admin users unavailable:', err)),
+      api.getPendingExpertApplications().then(setPendingExperts).catch((err) => console.warn('Expert applications unavailable:', err)),
+      api.getScans().then(setAllScans).catch((err) => console.warn('Admin scans unavailable:', err)),
+      api.getMapReports().then(setMapPoints).catch((err) => console.warn('Admin map unavailable:', err)),
+      api.getAdminAuditLogs().then(setAuditLogs).catch((err) => console.warn('Admin audit logs unavailable:', err)),
+      api.getTickets().then(setTicketsList).catch((err) => console.warn('Admin tickets unavailable:', err)),
+    ];
+    await Promise.all(tasks);
+    setLoading(false);
   };
-
-  useEffect(() => {
-    loadAdminData();
-  }, [searchQuery]);
 
   const handleRoleChange = async (userId: string | number, newRole: string) => {
     try {
@@ -73,6 +54,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       alert(`User role successfully changed to ${newRole}.`);
     } catch (e: any) {
       alert("Role update failed: " + e.message);
+    }
+  };
+
+  const handleExpertDecision = async (userId: string | number, decision: 'approve' | 'reject') => {
+    const id = String(userId);
+    const applicant = pendingExperts.find((item) => String(item.id || item.numeric_id) === id);
+    const action = decision === 'approve' ? 'approve' : 'reject';
+    const confirmed = window.confirm(
+      decision === 'approve'
+        ? `Approve ${applicant?.name || 'this'} as an Expert? They will be able to sign in with Expert access.`
+        : `Reject ${applicant?.name || 'this'}'s application? Their pending application account will be removed so they can apply again later.`
+    );
+    if (!confirmed) return;
+    setProcessingExpertId(id);
+    try {
+      if (decision === 'approve') await api.approveExpertApplication(id);
+      else await api.rejectExpertApplication(id);
+      await loadAdminData();
+      window.alert(decision === 'approve' ? 'Expert application approved.' : 'Expert application rejected.');
+    } catch (err: any) {
+      window.alert(err.message || 'Could not process expert application.');
+    } finally {
+      setProcessingExpertId(null);
     }
   };
 
@@ -390,6 +394,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
       {/* TAB 3: USER & FARMER RBAC MANAGEMENT */}
       {activeTab === 'users' && (
+        <div className="space-y-6">
+          <section className="glass-card p-6 rounded-3xl border border-amber-300/60 dark:border-amber-800/60 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Expert Applications</h3>
+                <p className="text-xs text-slate-500">Review new expert registrations. Applicants cannot sign in until approved.</p>
+              </div>
+              <span className="inline-flex w-fit items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                {pendingExperts.length} pending
+              </span>
+            </div>
+            {pendingExperts.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-5 text-center text-sm text-slate-500">
+                No pending expert applications. New requests will appear here.
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {pendingExperts.map((expert) => {
+                  const id = String(expert.id || expert.numeric_id);
+                  return (
+                    <article key={id} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-bold text-slate-900 dark:text-white">{expert.name}</p>
+                          <p className="text-xs text-slate-500">{expert.email}</p>
+                        </div>
+                        <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">PENDING</span>
+                      </div>
+                      <div className="text-xs text-slate-500 space-y-1">
+                        {expert.phone && <p>Phone: {expert.phone}</p>}
+                        {(expert.village || expert.district || expert.state) && <p>Location: {[expert.village, expert.district, expert.state].filter(Boolean).join(', ')}</p>}
+                        {expert.created_at && <p>Applied: {String(expert.created_at).slice(0, 10)}</p>}
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" disabled={processingExpertId === id} onClick={() => handleExpertDecision(id, 'approve')} className="flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
+                          {processingExpertId === id ? 'Please wait…' : 'Approve Expert'}
+                        </button>
+                        <button type="button" disabled={processingExpertId === id} onClick={() => handleExpertDecision(id, 'reject')} className="rounded-xl border border-rose-300 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/30 disabled:opacity-50">
+                          Reject
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+          <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6">
         <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -435,6 +487,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         u.role === 'ADMIN' ? 'bg-purple-500/20 text-purple-500 border border-purple-500/30' :
                         u.role === 'EXPERT' ? 'bg-blue-500/20 text-blue-500 border border-blue-500/30' :
+                        u.role === 'PENDING_EXPERT' ? 'bg-amber-500/20 text-amber-600 border border-amber-500/30' :
                         'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'
                       }`}>
                         {u.role}
@@ -452,7 +505,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                         className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs"
                       >
                         <option value="FARMER">FARMER</option>
-                        <option value="PENDING_EXPERT">PENDING_EXPERT (Awaiting Approval)</option>
                         <option value="EXPERT">EXPERT</option>
                         <option value="ADMIN">ADMIN</option>
                       </select>
@@ -461,6 +513,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                 ))}
               </tbody>
             </table>
+          </div>
           </div>
         </div>
       )}
