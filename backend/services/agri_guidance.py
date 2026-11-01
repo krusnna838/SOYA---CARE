@@ -187,9 +187,9 @@ def get_agricultural_guidance(disease_name: str, confidence_percent: float) -> d
             )
 
             resp = client.chat.completions.create(
-                model=Config.GROQ_MODEL,
+                model=(Config.GROQ_MODEL if Config.GROQ_MODEL not in {"llama-3.3-70b-versatile", "llama-3.1-8b-instant"} else "openai/gpt-oss-120b"),
                 temperature=0.2,
-                max_tokens=180,
+                max_completion_tokens=180,
                 messages=[
                     {"role": "system", "content": "You are a senior ICAR-trained agronomist explaining soybean health cautiously to farmers."},
                     {"role": "user", "content": prompt}
