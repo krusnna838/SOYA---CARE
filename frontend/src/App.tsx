@@ -192,7 +192,7 @@ export function App() {
         )}
 
         {currentTab === 'expert-dashboard' && (
-          user ? (
+          user && ['EXPERT', 'ADMIN'].includes(user.role) ? (
             <ExpertDashboard
               user={user}
               scans={scans}
@@ -201,9 +201,9 @@ export function App() {
           ) : (
             <div className="max-w-md mx-auto my-20 p-8 glass-card rounded-3xl border border-slate-200 dark:border-slate-800 text-center space-y-4">
               <ShieldCheck className="w-12 h-12 text-emerald-500 mx-auto" />
-              <h2 className="text-xl font-bold">Agronomist Expert Login Required</h2>
-              <p className="text-xs text-slate-400">Sign in with verified agricultural specialist credentials to access the verification workbench.</p>
-              <button onClick={() => setAuthModalOpen(true)} className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700">
+              <h2 className="text-xl font-bold">Expert Account Required</h2>
+              <p className="text-xs text-slate-400">Farmers can request expert advice after a scan. An approved expert must sign in here to review requests. If you already have an expert account, choose Expert on the sign-in screen.</p>
+              <button onClick={() => { if (user) handleLogout(); setAuthModalOpen(true); }} className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700">
                 Sign In as Expert
               </button>
             </div>
