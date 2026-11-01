@@ -189,7 +189,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Inference Pipeline Latency</p>
           <p className="text-3xl font-heading font-extrabold text-slate-900 dark:text-white">
-            {summaryData?.model_status?.active_latency_ms ?? 'Not measured'} ms
+            {summaryData?.model_status?.active_latency_ms != null ? `${summaryData.model_status.active_latency_ms} ms` : 'Not measured'}
           </p>
           <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Configuration status shown below</p>
         </div>
