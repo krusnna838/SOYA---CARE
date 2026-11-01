@@ -1185,7 +1185,6 @@ def create_app(test_config=None):
                 "groq_vision_configured": bool(Config.GROQ_API_KEY and "your_" not in Config.GROQ_API_KEY.lower()),
                 "groq_vision_model": Config.GROQ_VISION_MODEL,
                 "groq_llm_model": Config.GROQ_MODEL,
-                "active_latency_ms": 118
             }
         }), 200
 
