@@ -166,9 +166,9 @@ def create_app(test_config=None):
         name = str(data.get("name", "")).strip()
         email = str(data.get("email", "")).strip().lower()
         password = str(data.get("password", ""))
-        role = str(data.get("role", "FARMER")).strip().upper()
-        if role not in {"FARMER", "EXPERT", "ADMIN"}:
-            role = "FARMER"
+        # Public self-registration must never grant privileged roles.
+        # Admins can promote verified users through the protected admin API.
+        role = "FARMER"
 
         phone = str(data.get("phone", "")).strip()
         village = str(data.get("village", "")).strip()
@@ -575,16 +575,21 @@ def create_app(test_config=None):
         return jsonify({"scans": scans, "reports": scans}), 200
 
     @app.route("/api/reports/<int:report_id>/request-expert", methods=["POST"])
+    @login_required_jwt
     def request_expert_review(report_id):
         """Farmer requests manual phytopathologist verification on a scan."""
         data = request.get_json(silent=True) or {}
         notes = str(data.get("notes", "Farmer requested manual agronomist verification")).strip()
-        user = current_user()
-        farmer_name = user.get("name", "Soybean Farmer") if user else "Soybean Farmer"
+        user = g.current_user
+        farmer_name = user.get("name", "Soybean Farmer")
 
         row = get_db().execute("SELECT * FROM reports WHERE id = ?", (report_id,)).fetchone()
         if not row:
             return jsonify({"error": "Report not found."}), 404
+        if int(row["user_id"]) != int(user["id"]):
+            return jsonify({"error": "You can request review only for your own scan."}), 403
+        if user.get("role", "").upper() not in {"FARMER", "ADMIN"}:
+            return jsonify({"error": "Only the report owner can request an expert review."}), 403
 
         # Mark report as pending review
         get_db().execute("UPDATE reports SET status = 'pending_review' WHERE id = ?", (report_id,))
@@ -616,6 +621,7 @@ def create_app(test_config=None):
         }), 200
 
     @app.route("/api/expert/review", methods=["POST"])
+    @login_required_jwt
     def expert_review():
         """Expert verification and diagnostic note recording."""
         data = request.get_json(silent=True) or {}
@@ -625,12 +631,21 @@ def create_app(test_config=None):
         expert_notes = str(data.get("expertNotes", "")).strip()
         custom_disease = str(data.get("customDisease", "")).strip()
 
-        user = current_user()
-        expert_name = user.get("name", "District Agronomist") if user else "Senior Phytopathologist"
+        user = g.current_user
+        if user.get("role", "").upper() not in {"EXPERT", "ADMIN"}:
+            return jsonify({"error": "Expert or administrator access is required."}), 403
+        if not clean_id.isdigit():
+            return jsonify({"error": "A valid scan ID is required."}), 400
+        expert_name = user.get("name", "District Agronomist")
 
         try:
             report_num = int(clean_id)
-            status_text = "reviewed"
+            report = get_db().execute("SELECT id, status FROM reports WHERE id = ?", (report_num,)).fetchone()
+            if not report:
+                return jsonify({"error": "Report not found."}), 404
+            if report["status"] != "pending_review":
+                return jsonify({"error": "Only pending expert-review requests can be decided."}), 409
+            status_text = "reviewed" if approve else "rejected"
             if custom_disease:
                 get_db().execute(
                     "UPDATE reports SET status = ?, disease = ?, explanation = ? || ' [Verified by ' || ? || ']' WHERE id = ?",
@@ -654,6 +669,7 @@ def create_app(test_config=None):
             return jsonify({"error": f"Failed to record review: {str(e)}"}), 400
 
     @app.route("/api/reports/<int:report_id>", methods=["GET"])
+    @login_required_jwt
     def get_report_detail(report_id):
         row = get_db().execute("""
             SELECT r.*, u.name as farmer_name, u.email as farmer_email, u.village, u.district, u.state
@@ -661,12 +677,15 @@ def create_app(test_config=None):
         """, (report_id,)).fetchone()
         if not row:
             return jsonify({"error": "Report not found."}), 404
+        if int(row["user_id"]) != int(g.current_user["id"]) and g.current_user.get("role", "").upper() not in {"EXPERT", "ADMIN"}:
+            return jsonify({"error": "You are not allowed to view this report."}), 403
         d = dict(row)
         d["causes"] = json.loads(d.pop("causes_json", "[]") or "[]")
         d["actions"] = json.loads(d.pop("actions_json", "[]") or "[]")
         return jsonify({"report": d}), 200
 
     @app.route("/api/reports/<int:report_id>/pdf", methods=["GET"])
+    @login_required_jwt
     def download_report_pdf(report_id):
         """Generate and stream professional A4 PDF report."""
         row = get_db().execute("""
@@ -675,6 +694,8 @@ def create_app(test_config=None):
         """, (report_id,)).fetchone()
         if not row:
             return jsonify({"error": "Report record not found."}), 404
+        if int(row["user_id"]) != int(g.current_user["id"]) and g.current_user.get("role", "").upper() not in {"EXPERT", "ADMIN"}:
+            return jsonify({"error": "You are not allowed to download this report."}), 403
 
         d = dict(row)
         d["causes"] = json.loads(d.get("causes_json", "[]") or "[]")
