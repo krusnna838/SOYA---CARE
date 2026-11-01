@@ -14,9 +14,7 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
   const [customDisease, setCustomDisease] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
-  const [chatLog, setChatLog] = useState([
-    { sender: 'Rajesh Kumar (Farmer)', text: 'Dr. Ananya, I uploaded this photo today. Can I spray Priaxor tomorrow morning?', time: '10:14 AM' }
-  ]);
+  const [chatLog, setChatLog] = useState<{ sender: string; text: string; time: string }[]>([]);
 
   const handleReviewSubmit = async (approve: boolean) => {
     if (!activeScan) return;
