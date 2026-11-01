@@ -27,6 +27,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [allScans, setAllScans] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [selectedMapPoint, setSelectedMapPoint] = useState<any | null>(null);
+  const [selectedFarmer, setSelectedFarmer] = useState<any | null>(null);
+  const [farmerActivity, setFarmerActivity] = useState<any | null>(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+
+  const openFarmerActivity = async (farmer: any) => {
+    setSelectedFarmer(farmer);
+    setFarmerActivity(null);
+    setActivityLoading(true);
+    try {
+      const details = await api.getAdminUserActivity(farmer.numeric_id || String(farmer.id).replace(/^u/, ''));
+      setFarmerActivity(details);
+    } catch (error: any) {
+      alert('Could not load farmer activity: ' + (error?.message || 'Please retry.'));
+    } finally {
+      setActivityLoading(false);
+    }
+  };
 
   const loadAdminData = async () => {
     setLoading(true);
@@ -446,7 +463,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                     <td className="p-3 font-semibold">{u.scan_count || 0}</td>
                     <td className="p-3 text-slate-400">{String(u.created_at || '').substring(0, 10)}</td>
                     <td className="p-3 text-right">
-                      <select
+                      <div className="inline-flex items-center gap-2"><button onClick={() => openFarmerActivity(u)} className="px-2 py-1 rounded-lg bg-emerald-600 text-white text-[10px] font-bold">View activity</button><select
                         value={u.role}
                         onChange={(e) => handleRoleChange(u.id || u.numeric_id, e.target.value)}
                         className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs"
@@ -454,13 +471,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                         <option value="FARMER">FARMER</option>
                         <option value="EXPERT">EXPERT</option>
                         <option value="ADMIN">ADMIN</option>
-                      </select>
+                      </select></div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {selectedFarmer && (
+            <div className="mt-6 p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div><h4 className="font-bold text-slate-900 dark:text-white">Farmer Activity: {selectedFarmer.name}</h4><p className="text-xs text-slate-500">{selectedFarmer.email} · {selectedFarmer.role}</p></div>
+                <button onClick={() => { setSelectedFarmer(null); setFarmerActivity(null); }} className="text-xs font-bold text-rose-500">Close</button>
+              </div>
+              {activityLoading ? <p className="text-sm text-slate-500">Loading complete farmer activity…</p> : farmerActivity ? (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-900"><p className="text-[10px] text-slate-500">Total scans</p><p className="text-xl font-bold">{farmerActivity.scans?.length || 0}</p></div>
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-900"><p className="text-[10px] text-slate-500">Consultations</p><p className="text-xl font-bold">{farmerActivity.tickets?.length || 0}</p></div>
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-900"><p className="text-[10px] text-slate-500">Activity events</p><p className="text-xl font-bold">{farmerActivity.activity?.length || 0}</p></div>
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-900"><p className="text-[10px] text-slate-500">Registered</p><p className="text-sm font-bold">{farmerActivity.user?.created_at ? new Date(farmerActivity.user.created_at).toLocaleDateString() : '—'}</p></div>
+                  </div>
+                  <div><h5 className="text-xs font-bold uppercase text-slate-500 mb-2">Scan history</h5>
+                    {farmerActivity.scans?.length ? <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="text-left"><th className="p-2">Scan</th><th className="p-2">Disease</th><th className="p-2">Confidence</th><th className="p-2">Status</th><th className="p-2">Date</th></tr></thead><tbody>{farmerActivity.scans.map((scan: any) => <tr key={scan.id} className="border-t border-slate-200 dark:border-slate-700"><td className="p-2">#{scan.id}</td><td className="p-2">{scan.disease}</td><td className="p-2">{(Number(scan.confidence || 0)*100).toFixed(1)}%</td><td className="p-2">{scan.status}</td><td className="p-2">{scan.created_at ? new Date(scan.created_at).toLocaleString() : '—'}</td></tr>)}</tbody></table></div> : <p className="text-xs text-slate-500">No saved scans.</p>}
+                  </div>
+                  <div><h5 className="text-xs font-bold uppercase text-slate-500 mb-2">Consultation history</h5>
+                    {farmerActivity.tickets?.length ? farmerActivity.tickets.map((ticket: any) => <div key={ticket.ticket_code} className="p-3 mb-2 rounded-xl bg-white dark:bg-slate-900 text-xs"><div className="flex justify-between gap-2"><b>{ticket.ticket_code} · {ticket.subject}</b><span>{ticket.status}</span></div><p className="text-slate-500 mt-1">{ticket.messages?.length || 0} messages · {ticket.created_at ? new Date(ticket.created_at).toLocaleString() : ''}</p>{ticket.messages?.map((m: any, i: number) => <p key={i} className="mt-1"><b>{m.sender_name} ({m.sender_role}):</b> {m.text}</p>)}</div>) : <p className="text-xs text-slate-500">No consultations.</p>}
+                  </div>
+                  <div><h5 className="text-xs font-bold uppercase text-slate-500 mb-2">Account activity timeline</h5>
+                    {farmerActivity.activity?.length ? farmerActivity.activity.map((event: any) => <div key={event.id} className="flex justify-between gap-3 py-2 border-t border-slate-200 dark:border-slate-700 text-xs"><span><b>{event.action}</b> — {event.details}</span><span className="text-slate-500 whitespace-nowrap">{event.created_at ? new Date(event.created_at).toLocaleString() : ''}</span></div>) : <p className="text-xs text-slate-500">No audit events recorded for this account yet.</p>}
+                  </div>
+                </>
+              ) : <p className="text-xs text-slate-500">No activity details returned.</p>}
+            </div>
+          )}
         </div>
       )}
 

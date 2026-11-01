@@ -432,6 +432,15 @@ export const api = {
     return data.users || [];
   },
 
+  async getAdminUserActivity(userId: number | string): Promise<any> {
+    const res = await fetchWithAuth(`${API_BASE_URL}/admin/users/${userId}/activity`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Could not retrieve farmer activity.');
+    }
+    return await res.json();
+  },
+
   async updateUserRole(userId: number | string, newRole: string): Promise<any> {
     const cleanId = String(userId).replace('u', '');
     const res = await fetchWithAuth(`${API_BASE_URL}/admin/users/${cleanId}/role`, {

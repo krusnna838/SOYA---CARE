@@ -1276,6 +1276,43 @@ def create_app(test_config=None):
 
         return jsonify({"users": users_list}), 200
 
+    @app.route("/api/admin/users/<int:user_id>/activity", methods=["GET"])
+    @admin_required_jwt
+    def admin_user_activity(user_id):
+        user_row = get_db().execute(
+            "SELECT id, name, email, role, phone, village, district, state, nationality, farm_size, created_at FROM users WHERE id = ?",
+            (user_id,)
+        ).fetchone()
+        if not user_row:
+            return jsonify({"error": "User not found."}), 404
+        scans = get_db().execute(
+            "SELECT id, disease, confidence, explanation, verification_status, status, location_name, created_at FROM reports WHERE user_id = ? ORDER BY id DESC LIMIT 200",
+            (user_id,)
+        ).fetchall()
+        tickets = get_db().execute(
+            "SELECT id, ticket_code, subject, category, priority, status, created_at FROM support_tickets WHERE user_id = ? ORDER BY id DESC LIMIT 100",
+            (user_id,)
+        ).fetchall()
+        ticket_items = []
+        for ticket in tickets:
+            item = dict(ticket)
+            messages = get_db().execute(
+                "SELECT sender_name, sender_role, text, created_at FROM ticket_messages WHERE ticket_id = (SELECT id FROM support_tickets WHERE id = ?) ORDER BY id ASC",
+                (ticket["id"],)
+            ).fetchall()
+            item["messages"] = [dict(message) for message in messages]
+            ticket_items.append(item)
+        activity = get_db().execute(
+            "SELECT id, action, details, ip_address, created_at FROM audit_logs WHERE user_id = ? ORDER BY id DESC LIMIT 200",
+            (user_id,)
+        ).fetchall()
+        return jsonify({
+            "user": dict(user_row),
+            "scans": [dict(scan) for scan in scans],
+            "tickets": ticket_items,
+            "activity": [dict(event) for event in activity]
+        }), 200
+
     @app.route("/api/admin/users/<int:user_id>/role", methods=["POST"])
     @admin_required_jwt
     def admin_change_role(user_id):
