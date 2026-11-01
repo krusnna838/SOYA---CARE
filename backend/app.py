@@ -34,11 +34,14 @@ def bootstrap_admin_from_environment(app):
     if not email and not password:
         return
     if not email or not password:
-        raise RuntimeError("ADMIN_EMAIL and ADMIN_PASSWORD must both be configured to bootstrap the first administrator.")
+        logger.warning("Admin bootstrap skipped: configure both ADMIN_EMAIL and ADMIN_PASSWORD to create the first administrator.")
+        return
     if len(name) < 2 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-        raise RuntimeError("ADMIN_NAME or ADMIN_EMAIL is invalid.")
+        logger.error("Admin bootstrap skipped: ADMIN_NAME or ADMIN_EMAIL is invalid. The application will continue starting.")
+        return
     if len(password) < 12 or len(password) > 128:
-        raise RuntimeError("ADMIN_PASSWORD must contain between 12 and 128 characters.")
+        logger.error("Admin bootstrap skipped: ADMIN_PASSWORD must contain between 12 and 128 characters. The application will continue starting; create the admin interactively with manage.py.")
+        return
 
     with app.app_context():
         conn = get_db()
@@ -57,10 +60,12 @@ def bootstrap_admin_from_environment(app):
                 "SELECT role FROM users WHERE LOWER(email) = ?", (email,)
             ).fetchone()
             if existing:
-                raise RuntimeError(
-                    "ADMIN_EMAIL already belongs to a non-admin account. "
+                conn.rollback()
+                logger.error(
+                    "Admin bootstrap skipped: ADMIN_EMAIL already belongs to a non-admin account. "
                     "No existing Farmer or Expert account was changed; use a different admin email."
                 )
+                return
 
             conn.execute(
                 """INSERT INTO users (name, email, password_hash, role, created_at)
