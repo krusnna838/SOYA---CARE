@@ -336,7 +336,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                 <input
                   type="password"
                   required
-                  minLength={12}
+                  minLength={mode === 'register' ? 12 : undefined}
                   maxLength={128}
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   placeholder="At least 12 characters"
