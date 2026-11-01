@@ -39,7 +39,7 @@ def main():
         if args.command == "create-admin":
             email = args.email.strip().lower()
             name = args.name.strip()
-            if len(name) < 2 or not re.fullmatch(r"[^@\\s]+@[^@\\s]+\\.[^@\\s]+", email):
+            if len(name) < 2 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
                 print("Error: Enter a valid administrator name and email.")
                 sys.exit(1)
 
