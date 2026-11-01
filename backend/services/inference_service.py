@@ -184,7 +184,7 @@ def run_disease_inference(image_buffer: io.BytesIO) -> dict:
             image_b64 = base64.b64encode(image_buffer.getvalue()).decode("ascii")
             client = Groq(api_key=Config.GROQ_API_KEY, timeout=30.0)
             response = client.chat.completions.create(
-                model=Config.GROQ_VISION_MODEL,
+                model=(Config.GROQ_VISION_MODEL if Config.GROQ_VISION_MODEL.startswith("qwen/") else "qwen/qwen3.8-27b"),
                 temperature=0.0,
                 max_tokens=350,
                 response_format={"type": "json_object"},
