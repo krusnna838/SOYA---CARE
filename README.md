@@ -59,3 +59,13 @@ All 7 unit & integration tests verify:
 5. Empty and corrupt upload rejection
 6. 4-Stage leaf analysis inference
 7. ReportLab A4 downloadable PDF generation
+
+
+## Render Production Connection
+
+The deployed frontend is configured to use the existing backend service by default:
+- Frontend: https://soybeancare-frontend.onrender.com
+- Backend API: https://soya-care-2.onrender.com/api
+- Backend health: https://soya-care-2.onrender.com/api/health
+
+For the Render frontend service, set the build-time environment variable `VITE_API_BASE_URL` to `https://soya-care-2.onrender.com/api`, then trigger a fresh deploy. For the backend service, set `FRONTEND_ORIGIN` to `https://soybeancare-frontend.onrender.com` and `CORS_ORIGINS` to `https://soybeancare-frontend.onrender.com,http://localhost:5173,http://127.0.0.1:5173`. Keep existing strong `SECRET_KEY`, `JWT_SECRET`, database path, and AI provider credentials; do not commit secrets to GitHub.
