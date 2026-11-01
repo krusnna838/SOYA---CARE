@@ -551,7 +551,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                     {/* Header info */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-slate-400">{ticket.ticketCode}</span>
+                        <span className="font-mono text-xs font-bold text-slate-400">{ticket.ticketCode || ticket.id}</span>
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             ticket.status === 'Open'
@@ -623,11 +623,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                           >
                             <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
                               <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                                {m.senderName || m.sender_name || 'Agronomist Expert'} ({m.senderRole || m.sender_role || 'Staff'})
+                                {m.senderName || m.sender_name || m.sender || 'Agronomist Expert'} ({m.senderRole || m.sender_role || m.role || 'Staff'})
                               </span>
-                              <span>{String(m.createdAt || m.created_at || '').substring(0, 16).replace('T', ' ')}</span>
+                              <span>{String(m.createdAt || m.created_at || m.timestamp || '').substring(0, 16).replace('T', ' ')}</span>
                             </div>
-                            <p className="leading-relaxed">{m.message}</p>
+                            <p className="leading-relaxed">{m.message || m.text}</p>
                           </div>
                         ))}
                       </div>
