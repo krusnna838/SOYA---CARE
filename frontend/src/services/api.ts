@@ -316,31 +316,14 @@ export const api = {
   },
 
   async createTicket(ticket: any): Promise<SupportTicket> {
-    try {
-      const res = await fetchWithAuth(`${API_BASE_URL}/tickets`, {
-        method: 'POST',
-        body: JSON.stringify(ticket)
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.ticket;
-      }
-    } catch (e) {
-      console.warn('Backend ticket creation failed:', e);
-    }
-    return {
-      id: `TKT-${Math.floor(1000 + Math.random() * 9000)}`,
-      farmerId: 'u1',
-      farmerName: ticket.farmerName || 'Soybean Farmer',
-      subject: ticket.subject,
-      category: ticket.category || 'General Consultation',
-      priority: ticket.priority || 'Medium',
-      status: 'Open',
-      createdAt: new Date().toISOString(),
-      messages: [
-        { sender: ticket.farmerName || 'Soybean Farmer', role: 'FARMER', timestamp: new Date().toISOString(), text: ticket.message }
-      ]
-    };
+    const res = await fetchWithAuth(`${API_BASE_URL}/tickets`, {
+      method: 'POST',
+      body: JSON.stringify(ticket)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not create support ticket.');
+    return data.ticket;
+
   },
 
   async replyTicket(ticketId: string, text: string): Promise<any> {
