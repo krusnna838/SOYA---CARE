@@ -68,3 +68,25 @@ button:disabled { cursor:not-allowed; opacity:.55; transform:none !important; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
 }
+
+/* Shared polish across farmer, expert, admin, scan, support and catalog views */
+main > div { animation: pageEnter .45s ease-out both; }
+main [class*="rounded-2xl"][class*="border"],
+main [class*="rounded-3xl"][class*="border"] {
+  transition: border-color .22s ease, box-shadow .22s ease, transform .22s ease;
+}
+main [class*="rounded-2xl"][class*="border"]:hover,
+main [class*="rounded-3xl"][class*="border"]:hover {
+  border-color: rgba(16,185,129,.28);
+}
+main input, main select, main textarea {
+  max-width: 100%;
+  min-width: 0;
+}
+main table { width:100%; border-collapse:separate; border-spacing:0; }
+main img { vertical-align:middle; }
+@media (max-width: 768px) {
+  main { min-width:0; }
+  main [class*="grid-cols-"] { min-width:0; }
+  main [class*="overflow-x-auto"] { max-width:100%; }
+}
