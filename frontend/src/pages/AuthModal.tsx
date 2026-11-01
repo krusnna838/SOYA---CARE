@@ -106,38 +106,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
   };
 
   const handleGoogleAuth = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await api.googleLogin({
-        credential: 'google-oauth2-token-' + Date.now(),
-        email: 'farmer.google@soybeancare.ai',
-        name: 'Google Soybean Farmer'
-      } as any);
-      onLoginSuccess(data.user);
-      onClose();
-    } catch (e: any) {
-      setError(e.message || "Google sign-in could not be completed.");
-    } finally {
-      setLoading(false);
-    }
+    setError('Google Sign-In is not configured yet. Please use email and password.');
   };
 
   const handleAppleAuth = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await api.appleLogin({
-        email: 'farmer.apple@soybeancare.ai',
-        name: 'Apple Verified Cultivator'
-      });
-      onLoginSuccess(data.user);
-      onClose();
-    } catch (e: any) {
-      setError(e.message || "Apple sign-in could not be completed.");
-    } finally {
-      setLoading(false);
-    }
+    setError('Apple Sign-In is not configured yet. Please use email and password.');
   };
 
   return (
