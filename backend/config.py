@@ -20,9 +20,15 @@ class Config:
     MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10 MB limit
     UPLOAD_FOLDER = BASE_DIR / "uploads"
     
-    FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+    FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "https://soybeancare-frontend.onrender.com")
+    DEFAULT_CORS_ORIGINS = (
+        "https://soybeancare-frontend.onrender.com,"
+        "http://localhost:5173,http://127.0.0.1:5173"
+    )
     CORS_ORIGINS = [
-        o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()
+        o.strip().rstrip("/")
+        for o in os.getenv("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",")
+        if o.strip()
     ]
     
     # External AI APIs
