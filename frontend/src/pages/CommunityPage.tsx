@@ -21,7 +21,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ user }) => {
         id: Date.now(),
         author: user?.name || 'Farmer',
         role: 'Soybean Farmer',
-        avatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+        avatar: user?.avatar || '',
         time: 'Just now',
         title: newTitle,
         content: newContent,
@@ -65,6 +65,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ user }) => {
               <span>Ask Community or Share Advice</span>
             </h3>
 
+            <p className="text-xs text-amber-600 dark:text-amber-400">Community posting is not connected to a server yet. Posts created here are temporary and will disappear when you reload.</p>
             <form onSubmit={handleCreatePost} className="space-y-3 text-xs">
               <input
                 type="text"
