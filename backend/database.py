@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from flask import g
@@ -155,28 +156,32 @@ def init_db(app=None):
         if cur.fetchone()[0] == 0:
             seed_diseases(conn)
 
-        # Fixed administrator account. Store only a salted scrypt hash in source.
-        # Farmer and Expert accounts continue using their own registered credentials.
-        admin_email = "admin@soybeancare.ai"
-        admin_name = "SoybeanCare Admin"
-        admin_password_hash = "scrypt:32768:8:1$485b1d496f56f9b5$27ea9bd31dcc6a548ba78b5559574d2852ba783ffe506c066e6203a201e5ce42f2aaaf158ab376342b116752783e1412a4c118d12bd788ba486b6fcc91507a16"
-
-        existing_admin = conn.execute(
-            "SELECT id FROM users WHERE LOWER(email) = ?", (admin_email,)
-        ).fetchone()
-        if existing_admin:
-            conn.execute(
-                "UPDATE users SET name = ?, password_hash = ?, role = 'ADMIN' WHERE id = ?",
-                (admin_name, admin_password_hash, existing_admin["id"])
-            )
-        else:
-            conn.execute(
-                """INSERT INTO users (name, email, password_hash, role, created_at)
-                   VALUES (?, ?, ?, 'ADMIN', ?)""",
-                (admin_name, admin_email, admin_password_hash, datetime.now(timezone.utc).isoformat())
-            )
-        conn.commit()
-        logger.info("Fixed administrator account is ready: %s", admin_email)
+        # Optional administrator bootstrap. Never ship a default password or hash.
+        # Set ADMIN_EMAIL and ADMIN_PASSWORD as private hosting environment variables,
+        # or provision an administrator with: python manage.py create-admin.
+        admin_email = os.getenv("ADMIN_EMAIL", "").strip().lower()
+        admin_name = os.getenv("ADMIN_NAME", "SoybeanCare Administrator").strip()
+        admin_password = os.getenv("ADMIN_PASSWORD", "")
+        if admin_email and admin_password:
+            if len(admin_password) < 12:
+                raise RuntimeError("ADMIN_PASSWORD must contain at least 12 characters.")
+            admin_password_hash = generate_password_hash(admin_password)
+            existing_admin = conn.execute(
+                "SELECT id FROM users WHERE LOWER(email) = ?", (admin_email,)
+            ).fetchone()
+            if existing_admin:
+                conn.execute(
+                    "UPDATE users SET name = ?, password_hash = ?, role = 'ADMIN' WHERE id = ?",
+                    (admin_name, admin_password_hash, existing_admin["id"])
+                )
+            else:
+                conn.execute(
+                    """INSERT INTO users (name, email, password_hash, role, created_at)
+                       VALUES (?, ?, ?, 'ADMIN', ?)""",
+                    (admin_name, admin_email, admin_password_hash, datetime.now(timezone.utc).isoformat())
+                )
+            conn.commit()
+            logger.info("Administrator bootstrap completed for configured account.")
 
 def seed_diseases(conn):
     diseases = [
