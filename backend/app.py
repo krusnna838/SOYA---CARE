@@ -36,6 +36,10 @@ def create_app(test_config=None):
         origin.rstrip("/") for origin in (app.config["CORS_ORIGINS"] + [app.config["FRONTEND_ORIGIN"]])
         if origin and origin != "*"
     ))
+    # Render may assign a different onrender.com hostname to the existing
+    # frontend service. Allow HTTPS Render service origins while retaining
+    # the explicit origins above for local development and custom domains.
+    allowed_origins.append(r"^https://[a-z0-9-]+\.onrender\.com$")
     CORS(
         app,
         resources={r"/api/*": {"origins": allowed_origins}},
