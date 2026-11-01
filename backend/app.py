@@ -35,7 +35,7 @@ def bootstrap_admin_from_environment(app):
         return
     if not email or not password:
         raise RuntimeError("ADMIN_EMAIL and ADMIN_PASSWORD must both be configured to bootstrap the first administrator.")
-    if len(name) < 2 or not re.fullmatch(r"[^@\\s]+@[^@\\s]+\\.[^@\\s]+", email):
+    if len(name) < 2 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
         raise RuntimeError("ADMIN_NAME or ADMIN_EMAIL is invalid.")
     if len(password) < 12 or len(password) > 128:
         raise RuntimeError("ADMIN_PASSWORD must contain between 12 and 128 characters.")
