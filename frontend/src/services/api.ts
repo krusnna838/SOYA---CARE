@@ -1,7 +1,16 @@
 import type { Disease, DiseaseScan, SupportTicket, User, WeatherData, GovtScheme } from '../types';
 
-// Use relative /api in development (proxied by Vite) or configured VITE_API_BASE_URL
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+// Development uses Vite's local /api proxy. Production connects to the existing
+// Render backend unless an explicit VITE_API_BASE_URL is supplied at build time.
+const configuredApiUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+const defaultApiUrl = import.meta.env.DEV
+  ? '/api'
+  : 'https://soya-care-2.onrender.com/api';
+const apiUrl = configuredApiUrl || defaultApiUrl;
+// Accept either the backend root URL or the full /api URL in Render settings.
+const API_BASE_URL = apiUrl.startsWith('http') && !apiUrl.endsWith('/api')
+  ? `${apiUrl}/api`
+  : apiUrl;
 
 const TOKEN_KEY = 'soybeancare_auth_token';
 const USER_KEY = 'soybeancare_user_profile';
