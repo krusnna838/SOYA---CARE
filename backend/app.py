@@ -174,9 +174,12 @@ def create_app(test_config=None):
         name = str(data.get("name", "")).strip()
         email = str(data.get("email", "")).strip().lower()
         password = str(data.get("password", ""))
-        # Public self-registration must never grant privileged roles.
-        # Admins can promote verified users through the protected admin API.
-        role = "FARMER"
+        # Public registration supports Farmer and Expert applications only.
+        # Expert applicants remain unprivileged until an administrator approves them.
+        requested_role = str(data.get("role", "FARMER")).strip().upper()
+        if requested_role not in {"FARMER", "EXPERT"}:
+            return jsonify({"error": "Choose either Farmer or Expert registration."}), 400
+        role = "PENDING_EXPERT" if requested_role == "EXPERT" else "FARMER"
 
         phone = str(data.get("phone", "")).strip()
         village = str(data.get("village", "")).strip()
@@ -189,8 +192,8 @@ def create_app(test_config=None):
             return jsonify({"error": "Please enter your full name (at least 2 characters)."}), 400
         if "@" not in email or "." not in email:
             return jsonify({"error": "Please enter a valid email address."}), 400
-        if len(password) < 6:
-            return jsonify({"error": "Password must contain at least 6 characters."}), 400
+        if len(password) < 12 or len(password) > 128:
+            return jsonify({"error": "Password must be between 12 and 128 characters."}), 400
 
         try:
             hashed = generate_password_hash(password)
@@ -203,11 +206,18 @@ def create_app(test_config=None):
             uid = cur.lastrowid
             new_user = dict(get_db().execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone())
 
-            token = create_access_token(identity=str(uid))
             log_audit("user_register", f"User {email} registered as {role}", user_id=uid)
 
+            if role == "PENDING_EXPERT":
+                return jsonify({
+                    "message": "Expert application submitted. An administrator must approve your account before you can sign in.",
+                    "pendingApproval": True,
+                    "user": serialize_user(new_user)
+                }), 202
+
+            token = create_access_token(identity=str(uid))
             return jsonify({
-                "message": "Account created successfully.",
+                "message": "Farmer account created successfully.",
                 "token": token,
                 "user": serialize_user(new_user)
             }), 201
@@ -235,10 +245,11 @@ def create_app(test_config=None):
         if not user.get("password_hash") or not check_password_hash(user["password_hash"], password):
             return jsonify({"error": "Invalid email or password."}), 401
 
-        # The database role is authoritative. Older deployed frontends may send
-        # a default role (for example FARMER) even for administrator accounts.
-        # Authenticate the valid account and return its actual role instead of
-        # blocking login based on a stale client-side role selection.
+        actual_role = str(user.get("role", "FARMER")).strip().upper()
+        if actual_role == "PENDING_EXPERT":
+            return jsonify({"error": "Your Expert application is awaiting administrator approval."}), 403
+
+        # The database role is authoritative; never trust a role supplied by the browser.
         token = create_access_token(identity=str(user["id"]))
         log_audit("user_login", f"User {email} logged in", user_id=user["id"])
 
@@ -250,38 +261,29 @@ def create_app(test_config=None):
 
     @app.route("/api/auth/google", methods=["POST"])
     def google_auth():
-        """Verify Google OAuth id_token server-side or authenticate profile."""
-        data = request.get_json(silent=True) or {}
-        credential = data.get("credential")
-
-        email = None
-        name = None
-        avatar = None
-
-        if credential:
-            try:
-                from google.oauth2 import id_token
-                from google.auth.transport import requests as google_requests
-
-                client_id = Config.GOOGLE_CLIENT_ID
-                id_info = id_token.verify_oauth2_token(
-                    credential,
-                    google_requests.Request(),
-                    client_id if client_id else None
-                )
-                email = str(id_info.get("email", "")).strip().lower()
-                name = id_info.get("name") or email.split("@")[0]
-                avatar = id_info.get("picture", "")
-            except Exception as e:
-                logger.info(f"Google ID token verification skipped or failed: {e}")
-
-        # Fallback to direct OAuth profile payload (for local/testing or browser client)
-        if not email:
-            email = str(data.get("email", "")).strip().lower() or "google.farmer@soybeancare.ai"
-            name = str(data.get("name", "")).strip() or "Google Soybean Farmer"
-            avatar = str(data.get("avatar", "")).strip() or "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"
+        """Authenticate only a Google ID token verified against our configured client."""
+        credential = (request.get_json(silent=True) or {}).get("credential")
+        client_id = Config.GOOGLE_CLIENT_ID
+        if not credential or not client_id:
+            return jsonify({"error": "Google Sign-In is not configured. Use email and password."}), 503
+        try:
+            from google.oauth2 import id_token
+            from google.auth.transport import requests as google_requests
+            info = id_token.verify_oauth2_token(credential, google_requests.Request(), client_id)
+            if not info.get("email_verified"):
+                return jsonify({"error": "Google email is not verified."}), 401
+            email = str(info.get("email", "")).strip().lower()
+            name = str(info.get("name") or email.split("@")[0]).strip()
+            avatar = str(info.get("picture", "")).strip()
+            if not email or "@" not in email:
+                return jsonify({"error": "Invalid Google account."}), 401
+        except Exception:
+            logger.warning("Google ID token verification failed.")
+            return jsonify({"error": "Google authentication failed. Please try again."}), 401
 
         row = get_db().execute("SELECT * FROM users WHERE LOWER(email) = ?", (email,)).fetchone()
+        if row and str(row["role"]).upper() == "PENDING_EXPERT":
+            return jsonify({"error": "Your Expert application is awaiting administrator approval."}), 403
         if not row:
             cur = get_db().execute(
                 """INSERT INTO users (name, email, password_hash, role, avatar, nationality, state, created_at)
@@ -293,41 +295,14 @@ def create_app(test_config=None):
 
         user = dict(row)
         token = create_access_token(identity=str(user["id"]))
-        log_audit("google_login", f"Google OAuth login for {email}", user_id=user["id"])
-
-        return jsonify({
-            "message": "Google authentication successful.",
-            "token": token,
-            "user": serialize_user(user)
-        }), 200
+        log_audit("google_login", "Verified Google OAuth login", user_id=user["id"])
+        return jsonify({"message": "Google authentication successful.", "token": token, "user": serialize_user(user)}), 200
 
     @app.route("/api/auth/apple", methods=["POST"])
     def apple_auth():
-        """Apple Sign-In authorization handler."""
-        data = request.get_json(silent=True) or {}
-        email = str(data.get("email", "")).strip().lower() or "apple.farmer@soybeancare.ai"
-        name = str(data.get("name", "")).strip() or "Apple ID Cultivator"
-        avatar = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80"
-
-        row = get_db().execute("SELECT * FROM users WHERE LOWER(email) = ?", (email,)).fetchone()
-        if not row:
-            cur = get_db().execute(
-                """INSERT INTO users (name, email, password_hash, role, avatar, nationality, state, created_at)
-                   VALUES (?, ?, NULL, 'FARMER', ?, 'India', 'Madhya Pradesh', ?)""",
-                (name, email, avatar, datetime.now(timezone.utc).isoformat())
-            )
-            get_db().commit()
-            row = get_db().execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
-
-        user = dict(row)
-        token = create_access_token(identity=str(user["id"]))
-        log_audit("apple_login", f"Apple Sign-In for {email}", user_id=user["id"])
-
-        return jsonify({
-            "message": "Apple Sign-In successful.",
-            "token": token,
-            "user": serialize_user(user)
-        }), 200
+        # Do not accept client-supplied email/name as proof of Apple identity.
+        # Apple Sign-In stays disabled until server-side identity-token verification is configured.
+        return jsonify({"error": "Apple Sign-In is not configured. Use email and password."}), 503
 
     @app.route("/api/auth/me", methods=["GET"])
     @login_required_jwt
