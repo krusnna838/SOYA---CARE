@@ -46,26 +46,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       setTicketsList(tickets);
     } catch (err) {
       console.warn("Could not load complete admin data from backend:", err);
-      // Fallback baseline for presentation
-      setSummaryData({
-        users: 184,
-        farmers: 168,
-        experts: 12,
-        reports: 412,
-        open_tickets: 4,
-        disease_distribution: [
-          { disease: "Septoria Brown Spot", count: 182 },
-          { disease: "Asian Soybean Rust", count: 94 },
-          { disease: "Healthy Soybean Leaf", count: 88 },
-          { disease: "Bacterial Blight", count: 48 }
-        ],
-        model_status: {
-          roboflow_configured: true,
-          roboflow_model_id: "soybean-crop-disease/6",
-          groq_vision_configured: true,
-          active_latency_ms: 112
-        }
-      });
+      setSummaryData(null);
+      setUsersList([]);
+      setMapPoints([]);
+      setAuditLogs([]);
+      setTicketsList([]);
+      alert("Admin data could not be loaded. Check backend availability and your admin permissions.");
     } finally {
       setLoading(false);
     }
