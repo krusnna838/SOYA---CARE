@@ -1307,6 +1307,43 @@ def create_app(test_config=None):
             }
         }), 200
 
+    @app.route("/api/admin/expert-applications", methods=["GET"])
+    @admin_required_jwt
+    def admin_expert_applications():
+        rows = get_db().execute(
+            """SELECT id, name, email, phone, village, district, state, created_at
+               FROM users WHERE UPPER(role) = 'PENDING_EXPERT' ORDER BY id ASC"""
+        ).fetchall()
+        return jsonify({"applications": [serialize_user(dict(row)) for row in rows]}), 200
+
+    @app.route("/api/admin/expert-applications/<int:user_id>/approve", methods=["POST"])
+    @admin_required_jwt
+    def approve_expert_application(user_id):
+        row = get_db().execute(
+            "SELECT id, email FROM users WHERE id = ? AND UPPER(role) = 'PENDING_EXPERT'",
+            (user_id,)
+        ).fetchone()
+        if not row:
+            return jsonify({"error": "Pending expert application not found. It may already be processed."}), 404
+        get_db().execute("UPDATE users SET role = 'EXPERT' WHERE id = ?", (user_id,))
+        get_db().commit()
+        log_audit("expert_application_approved", f"Expert application approved for {row['email']}", user_id=g.current_user["id"])
+        return jsonify({"message": "Expert application approved. The applicant can now sign in as an Expert."}), 200
+
+    @app.route("/api/admin/expert-applications/<int:user_id>/reject", methods=["POST"])
+    @admin_required_jwt
+    def reject_expert_application(user_id):
+        row = get_db().execute(
+            "SELECT id, email FROM users WHERE id = ? AND UPPER(role) = 'PENDING_EXPERT'",
+            (user_id,)
+        ).fetchone()
+        if not row:
+            return jsonify({"error": "Pending expert application not found. It may already be processed."}), 404
+        get_db().execute("DELETE FROM users WHERE id = ?", (user_id,))
+        get_db().commit()
+        log_audit("expert_application_rejected", f"Expert application rejected and pending account removed for {row['email']}", user_id=g.current_user["id"])
+        return jsonify({"message": "Expert application rejected. The applicant may submit a new application later."}), 200
+
     @app.route("/api/admin/users", methods=["GET"])
     @admin_required_jwt
     def admin_users():
