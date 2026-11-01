@@ -6,7 +6,9 @@ const configuredApiUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replac
 const defaultApiUrl = import.meta.env.DEV
   ? '/api'
   : 'https://soya-care-2.onrender.com/api';
-const apiUrl = configuredApiUrl || defaultApiUrl;
+const apiUrl = !configuredApiUrl || (!import.meta.env.DEV && configuredApiUrl.startsWith('/'))
+  ? defaultApiUrl
+  : configuredApiUrl;
 // Accept either the backend root URL or the full /api URL in Render settings.
 const API_BASE_URL = apiUrl.startsWith('http') && !apiUrl.endsWith('/api')
   ? `${apiUrl}/api`
