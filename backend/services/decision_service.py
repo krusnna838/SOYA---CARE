@@ -36,16 +36,17 @@ def evaluate_final_decision(verification: dict, inference: dict) -> dict:
             "ai_disclaimer": "Automated verification rejected this image."
         }
 
-    # Policy Rule 2: Uncertain species verification.
-    # A generic green-leaf heuristic cannot prove that the specimen is soybean;
-    # never produce a soybean disease label until the vision verification passes.
-    if verif_status == "UNCERTAIN":
+    # If the leaf verifier is uncertain but an actual AI disease classifier
+    # returned a result, allow a clearly labelled preliminary result. This is
+    # important when Groq verification is unavailable but Roboflow is working.
+    predictions = inference.get("predictions", [])
+    if verif_status == "UNCERTAIN" and not predictions:
         return {
-            "success": True,
+            "success": False,
             "detected": False,
             "decision": "UNCERTAIN",
             "status": "uncertain_image",
-            "message": "The uploaded leaf photo could not be verified with confidence as a soybean leaf. Retake a sharp, close-up photograph.",
+            "message": "The image could not be verified as a soybean leaf and the disease classifier returned no result. Retake a clear close-up photo.",
             "verification": verification,
             "disease": None,
             "confidence": 0.0,
@@ -55,13 +56,12 @@ def evaluate_final_decision(verification: dict, inference: dict) -> dict:
             "actions": [
                 "Position the camera 15-25 cm from the affected soybean leaf.",
                 "Capture the image in bright daylight without heavy shadows or glare.",
-                "Inspect whether visible symptoms match soybean leaf spot, rust, or blight."
+                "Show the full leaf and visible symptoms clearly."
             ],
             "fertilizer_note": "Do not alter fertilizer application based on an uncertain leaf image.",
             "ai_disclaimer": "Specimen species could not be verified."
         }
 
-    predictions = inference.get("predictions", [])
     if not predictions:
         return {
             "success": True,
