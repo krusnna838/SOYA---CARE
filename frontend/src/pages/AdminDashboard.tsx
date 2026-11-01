@@ -13,7 +13,7 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'map' | 'users' | 'tickets' | 'model' | 'audit'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'predictions' | 'map' | 'users' | 'tickets' | 'model' | 'audit'>('analytics');
   const [loading, setLoading] = useState(true);
   const [summaryData, setSummaryData] = useState<any | null>(null);
   const [usersList, setUsersList] = useState<any[]>([]);
@@ -24,6 +24,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [sendingReply, setSendingReply] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [mapPoints, setMapPoints] = useState<any[]>([]);
+  const [allScans, setAllScans] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [selectedMapPoint, setSelectedMapPoint] = useState<any | null>(null);
 
@@ -35,6 +36,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
       const users = await api.getAdminUsers(searchQuery);
       setUsersList(users);
+
+      const scans = await api.getScans();
+      setAllScans(scans);
 
       const points = await api.getMapReports();
       setMapPoints(points);
@@ -49,6 +53,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       setSummaryData(null);
       setUsersList([]);
       setMapPoints([]);
+      setAllScans([]);
       setAuditLogs([]);
       setTicketsList([]);
       alert("Admin data could not be loaded. Check backend availability and your admin permissions.");
@@ -122,6 +127,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
           {[
             { id: 'analytics', label: 'Analytics' },
+            { id: 'predictions', label: `All Predictions (${allScans.length})` },
             { id: 'map', label: 'Disease Map (GIS)' },
             { id: 'users', label: 'Farmer RBAC' },
             { id: 'tickets', label: `Farmer Queries (${ticketsList.filter(t => t.status === 'Open').length || 0})` },
@@ -155,39 +161,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Registered Users</p>
           <p className="text-3xl font-heading font-extrabold text-slate-900 dark:text-white">
-            {summaryData?.users || 184}
+            {summaryData?.users ?? '—'}
           </p>
           <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-            {summaryData?.farmers || 168} Active Soybean Farmers
+            {summaryData?.farmers ?? '—'} Active Soybean Farmers
           </p>
         </div>
 
         <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Diagnoses Performed</p>
           <p className="text-3xl font-heading font-extrabold text-slate-900 dark:text-white">
-            {summaryData?.reports || 412}
+            {summaryData?.reports ?? '—'}
           </p>
-          <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">98.4% Leaf Identification Precision</p>
+          <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Recorded reports from the live database</p>
         </div>
 
         <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Field Experts</p>
           <p className="text-3xl font-heading font-extrabold text-slate-900 dark:text-white">
-            {summaryData?.experts || 12}
+            {summaryData?.experts ?? '—'}
           </p>
           <p className="text-xs font-bold text-amber-500">
-            {summaryData?.open_tickets || 4} Open Farmer Consultations
+            {summaryData?.open_tickets ?? '—'} Open Farmer Consultations
           </p>
         </div>
 
         <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Inference Pipeline Latency</p>
           <p className="text-3xl font-heading font-extrabold text-slate-900 dark:text-white">
-            {summaryData?.model_status?.active_latency_ms || 118} ms
+            {summaryData?.model_status?.active_latency_ms ?? 'Not measured'} ms
           </p>
-          <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Online &amp; Calibrated</p>
+          <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Configuration status shown below</p>
         </div>
       </div>
+
+
+      {/* All recorded farmer predictions */}
+      {activeTab === 'predictions' && (
+        <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3"><div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">All Farmer Predictions</h3>
+            <p className="text-xs text-slate-500">Saved reports returned by the authenticated backend. No demo records are added.</p>
+          </div><span className="text-xs font-bold text-emerald-600">{allScans.length} records</span></div>
+          {allScans.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-10 text-center text-sm text-slate-500">No saved predictions are available yet.</div> : (
+            <div className="overflow-x-auto"><table className="w-full text-xs text-left">
+              <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"><tr><th className="p-3">Image</th><th className="p-3">Farmer</th><th className="p-3">Prediction</th><th className="p-3">Confidence</th><th className="p-3">Location</th><th className="p-3">Date</th></tr></thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">{allScans.map((scan: any) => <tr key={scan.id}>
+                <td className="p-3"><img src={scan.imageUrl} alt="Scanned leaf" className="w-12 h-12 rounded-lg object-cover" /></td><td className="p-3 font-semibold">{scan.farmerName || scan.farmerId || 'Farmer'}</td><td className="p-3">{scan.predictedDisease}</td><td className="p-3">{(Number(scan.confidenceScore ?? scan.confidence ?? 0) * 100).toFixed(1)}%</td><td className="p-3">{scan.location || '—'}</td><td className="p-3">{scan.scannedAt ? new Date(scan.scannedAt).toLocaleString() : '—'}</td>
+              </tr>)}</tbody>
+            </table></div>
+          )}
+        </div>
+      )}
 
       {/* TAB 1: ANALYTICS & RECENT SCANS */}
       {activeTab === 'analytics' && (
