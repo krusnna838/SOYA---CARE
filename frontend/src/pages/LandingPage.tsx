@@ -83,7 +83,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab, onOpenA
   ];
 
   return (
-    <div className="space-y-16 pb-16">
+    <div className="page-enter space-y-16 pb-16">
       
       {/* Hero Section with High-Res Farmer & Soybean Field Photography */}
       <section className="relative min-h-[560px] flex items-center justify-center overflow-hidden border-b border-emerald-950/20">
@@ -100,7 +100,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab, onOpenA
         {/* Deep Forest Green Gradient Mask for Clean Contrast */}
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-emerald-950/85 to-slate-950/90" />
 
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 py-16 text-center space-y-6">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 py-20 sm:py-24 text-center space-y-6 reveal-up">
           
           <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold backdrop-blur-sm">
             <Award className="w-3.5 h-3.5 text-emerald-400" />
@@ -170,13 +170,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab, onOpenA
           {workflowSteps.map((ws) => (
             <div 
               key={ws.step}
-              className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col"
+              className="hover-lift bg-white dark:bg-slate-900 rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col"
             >
-              <div className="h-44 overflow-hidden relative">
+              <div className="image-frame h-48 sm:h-52 overflow-hidden relative">
                 <img 
                   src={ws.image} 
                   alt={ws.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                  className="w-full h-full object-cover transition-transform duration-500" 
                 />
                 <span className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-sm text-emerald-400 font-extrabold text-xs px-2.5 py-1 rounded-lg">
                   Step {ws.step}
@@ -217,9 +217,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab, onOpenA
           {coreDiseases.map((d) => (
             <div 
               key={d.name}
-              className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col"
+              className="hover-lift bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col"
             >
-              <img src={d.image} alt={d.name} className="h-36 w-full object-cover" />
+              <div className="image-frame h-40 sm:h-44"><img src={d.image} alt={`${d.name} soybean leaf reference`} className="media-cover" loading="lazy" onError={(event) => { event.currentTarget.style.opacity = "0"; }} /></div>
               <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-1">
@@ -276,7 +276,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab, onOpenA
           {faqs.map((faq, idx) => (
             <div
               key={idx}
-              className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all"
+              className="hover-lift bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm"
             >
               <button
                 onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
