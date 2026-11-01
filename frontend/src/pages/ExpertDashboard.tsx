@@ -219,7 +219,7 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
               <div className="pt-6 border-t border-slate-200 dark:border-slate-800 space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-2">
                   <MessageSquare className="w-4 h-4 text-emerald-500" />
-                  <span>Direct Advisory Consultation Chat</span>
+                  <span>Local Advisory Note (not delivered to farmer)</span>
                 </h4>
 
                 <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 h-40 overflow-y-auto space-y-3 text-xs">
@@ -231,6 +231,7 @@ export const ExpertDashboard: React.FC<ExpertDashboardProps> = ({ user, scans })
                   ))}
                 </div>
 
+                <p className="text-[10px] text-amber-600 dark:text-amber-400">Messages typed here are not sent or saved on the server. Use a connected ticket or messaging service for real communication.</p>
                 <form onSubmit={sendChat} className="flex space-x-2">
                   <input
                     type="text"
