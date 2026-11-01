@@ -519,9 +519,10 @@ def create_app(test_config=None):
 
     @app.route("/api/scans", methods=["GET"])
     @app.route("/api/reports", methods=["GET"])
+    @login_required_jwt
     def get_scans():
         """List scan history for the current farmer or all scans for admin."""
-        user = current_user()
+        user = g.current_user
         if user and user.get("role", "").upper() in ["ADMIN", "EXPERT"]:
             rows = get_db().execute("""
                 SELECT r.*, u.name as farmer_name, u.village, u.district 
@@ -719,7 +720,10 @@ def create_app(test_config=None):
             return jsonify({"error": "Could not generate PDF report. Check server logs."}), 500
 
     @app.route("/api/map/reports", methods=["GET"])
+    @login_required_jwt
     def get_map_reports():
+        if g.current_user.get("role", "").upper() not in {"EXPERT", "ADMIN"}:
+            return jsonify({"error": "Expert or administrator access is required."}), 403
         """Retrieve geolocated report points for interactive map display."""
         rows = get_db().execute("""
             SELECT r.id, r.disease, r.confidence, r.latitude, r.longitude, r.location_name, r.created_at, u.name as farmer_name
@@ -994,6 +998,7 @@ def create_app(test_config=None):
     # SUPPORT TICKETS (Phases 6 & 7)
     # ---------------------------------------------------------
     @app.route("/api/tickets", methods=["GET", "POST"])
+    @login_required_jwt
     def tickets():
         if request.method == "POST":
             data = request.get_json(silent=True) or {}
@@ -1006,8 +1011,9 @@ def create_app(test_config=None):
             if not subject or not message:
                 return jsonify({"error": "Subject and message are required."}), 400
 
-            user = current_user()
-            user_id = user["id"] if user else 1
+            user = g.current_user
+            user_id = user["id"]
+            farmer_name = user.get("name") or farmer_name
             code = f"TKT-{datetime.now().strftime('%y%m%d')}-{secrets.token_hex(2).upper()}"
 
             cur = get_db().execute(
@@ -1072,6 +1078,7 @@ def create_app(test_config=None):
         return jsonify({"tickets": tickets_list}), 200
 
     @app.route("/api/tickets/<string:ticket_id>/reply", methods=["POST"])
+    @login_required_jwt
     def reply_ticket(ticket_id):
         """Add an expert or admin response message to a support query."""
         data = request.get_json(silent=True) or {}
@@ -1082,12 +1089,11 @@ def create_app(test_config=None):
         if not text:
             return jsonify({"error": "Message text is required."}), 400
 
-        user = current_user()
-        if user:
-            sender_name = sender_name or user.get("name", "Agronomy Specialist")
-            sender_role = user.get("role", "ADMIN").upper()
-        else:
-            sender_name = sender_name or "Agronomy Specialist"
+        user = g.current_user
+        sender_name = user.get("name", "Agronomy Specialist")
+        sender_role = user.get("role", "").upper()
+        if sender_role not in {"FARMER", "EXPERT", "ADMIN"}:
+            return jsonify({"error": "Not authorized."}), 403
 
         row = get_db().execute(
             "SELECT * FROM support_tickets WHERE ticket_code = ? OR id = ?",
@@ -1095,6 +1101,8 @@ def create_app(test_config=None):
         ).fetchone()
         if not row:
             return jsonify({"error": "Ticket not found."}), 404
+        if int(row["user_id"]) != int(user["id"]) and sender_role not in {"EXPERT", "ADMIN"}:
+            return jsonify({"error": "You cannot reply to this ticket."}), 403
 
         ticket_db_id = row["id"]
         get_db().execute(
@@ -1122,8 +1130,11 @@ def create_app(test_config=None):
         }), 200
 
     @app.route("/api/tickets/<string:ticket_id>/status", methods=["PATCH", "PUT", "POST"])
+    @login_required_jwt
     def update_ticket_status(ticket_id):
         """Update support query status (Open, In Progress, Resolved)."""
+        if g.current_user.get("role", "").upper() not in {"EXPERT", "ADMIN"}:
+            return jsonify({"error": "Expert or administrator access is required."}), 403
         data = request.get_json(silent=True) or {}
         status = str(data.get("status", "")).strip()
         if status not in ["Open", "In Progress", "Resolved", "Closed"]:
