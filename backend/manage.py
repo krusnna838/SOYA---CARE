@@ -24,6 +24,12 @@ def main():
     admin_parser.add_argument("--name", default="SoybeanCare Administrator", help="Administrator full name")
     admin_parser.add_argument("--email", required=True, help="Administrator email address")
 
+    reset_parser = subparsers.add_parser(
+        "reset-admin-password",
+        help="Interactively reset the password for an existing administrator account.",
+    )
+    reset_parser.add_argument("--email", required=True, help="Existing administrator email address")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -35,6 +41,33 @@ def main():
             init_db()
             print("Database initialized successfully.")
             return
+
+        if args.command == "reset-admin-password":
+            email = args.email.strip().lower()
+            conn = get_db()
+            admin = conn.execute(
+                "SELECT id FROM users WHERE LOWER(email) = ? AND UPPER(role) = 'ADMIN'",
+                (email,),
+            ).fetchone()
+            if not admin:
+                print("Error: No administrator account exists for that email. Existing Farmer and Expert accounts are never promoted by this command.")
+                sys.exit(1)
+
+            password = getpass.getpass("New administrator password (12-128 characters): ")
+            confirmation = getpass.getpass("Confirm administrator password: ")
+            if password != confirmation:
+                print("Error: Passwords do not match.")
+                sys.exit(1)
+            if len(password) < 12 or len(password) > 128:
+                print("Error: Password must contain between 12 and 128 characters.")
+                sys.exit(1)
+
+            conn.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (generate_password_hash(password), admin["id"]),
+            )
+            conn.commit()
+            print(f"Administrator password reset successfully for {email}.")
 
         if args.command == "create-admin":
             email = args.email.strip().lower()
