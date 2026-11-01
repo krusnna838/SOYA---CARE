@@ -45,10 +45,13 @@ def evaluate_image_foliage_heuristics(image_buffer: io.BytesIO) -> dict:
             }
 
         if veg_ratio < 0.12:
+            # Color alone cannot reliably distinguish a severely diseased,
+            # yellowing, or brown soybean leaf from a non-leaf object.
+            # Let the configured vision classifier make the final assessment.
             return {
-                "status": "NOT_SOYBEAN_LEAF",
-                "reason": "Image lacks plant foliage or leaf color characteristics (human, animal, document, or non-plant object detected).",
-                "confidence": 0.82,
+                "status": "UNCERTAIN",
+                "reason": "Leaf species could not be verified from color characteristics alone; AI disease classification will assess the image.",
+                "confidence": 0.50,
                 "provider": "local_heuristic"
             }
 
