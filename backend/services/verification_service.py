@@ -113,7 +113,7 @@ def verify_soybean_leaf(image_buffer: io.BytesIO) -> dict:
         response = client.chat.completions.create(
             model=(Config.GROQ_VISION_MODEL if Config.GROQ_VISION_MODEL.startswith("qwen/") else "qwen/qwen3.8-27b"),
             temperature=0.0,
-            max_tokens=220,
+            max_completion_tokens=220,
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": system_prompt},
