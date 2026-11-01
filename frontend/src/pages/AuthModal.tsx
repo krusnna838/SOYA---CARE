@@ -77,7 +77,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
 
     try {
       if (mode === 'login') {
-        const data = await api.login(email.trim().toLowerCase(), password, role);
+        const data = await api.login(email.trim().toLowerCase(), password, role, rememberMe);
         onLoginSuccess(data.user);
         onClose();
       } else if (mode === 'register') {
@@ -104,8 +104,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
           onClose();
         }
       } else {
-        alert('Password reset instructions sent to your registered email address.');
-        setMode('login');
+        setError('Password reset is not configured yet. Please contact the administrator for account recovery.');
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please verify credentials.');
@@ -367,7 +366,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
             disabled={loading}
             className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center space-x-2 mt-2"
           >
-            <span>{loading ? 'Processing...' : mode === 'login' ? 'Sign In' : mode === 'register' ? 'Register Farm Account' : 'Send Reset Link'}</span>
+            <span>{loading ? 'Processing...' : mode === 'login' ? 'Sign In' : mode === 'register' ? 'Register Farm Account' : 'Password Reset Unavailable'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>

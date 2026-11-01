@@ -260,7 +260,12 @@ def create_app(test_config=None):
         if actual_role == "PENDING_EXPERT":
             return jsonify({"error": "Your Expert application is awaiting administrator approval."}), 403
 
-        # The database role is authoritative; never trust a role supplied by the browser.
+        # The database role is authoritative. The selected UI role is only a
+        # consistency check and can never grant permissions.
+        requested_role = str(data.get("role", "")).strip().upper()
+        if requested_role and requested_role != actual_role:
+            return jsonify({"error": f"This account is registered as {actual_role}. Select the matching account type."}), 403
+
         token = create_access_token(identity=str(user["id"]))
         log_audit("user_login", f"User {email} logged in", user_id=user["id"])
 
@@ -337,8 +342,11 @@ def create_app(test_config=None):
         language = str(data.get("language", g.current_user.get("language") or "en")).strip()
 
         new_password = data.get("newPassword") or data.get("password")
-        if new_password and len(str(new_password).strip()) >= 6:
-            new_hash = generate_password_hash(str(new_password).strip())
+        if new_password:
+            new_password = str(new_password)
+            if len(new_password) < 12 or len(new_password) > 128:
+                return jsonify({"error": "New password must be between 12 and 128 characters."}), 400
+            new_hash = generate_password_hash(new_password)
             get_db().execute(
                 """UPDATE users SET name=?, phone=?, village=?, district=?, state=?, nationality=?, avatar=?,
                    farm_size=?, crop_variety=?, soil_type=?, language=?, password_hash=? WHERE id=?""",

@@ -141,8 +141,40 @@ def test_public_registration_cannot_assign_privileged_role(client):
     response = client.post("/api/auth/register", json={
         "name": "Untrusted User", "email": email, "password": "Password123!", "role": "ADMIN"
     })
-    assert response.status_code == 201
-    assert response.get_json()["user"]["role"] == "FARMER"
+    assert response.status_code == 400
+    assert "Choose either Farmer or Expert" in response.get_json()["error"]
+    with client.application.app_context():
+        assert get_db().execute(
+            "SELECT id FROM users WHERE LOWER(email) = ?", (email,)
+        ).fetchone() is None
+
+
+def test_expert_registration_requires_admin_approval(client):
+    email = f"expert_{uuid.uuid4().hex[:8]}@example.com"
+    response = client.post("/api/auth/register", json={
+        "name": "Pending Expert", "email": email,
+        "password": "StrongExpertPass123!", "role": "EXPERT"
+    })
+    assert response.status_code == 202
+    assert response.get_json()["pendingApproval"] is True
+    assert response.get_json()["user"]["role"] == "PENDING_EXPERT"
+
+    login = client.post("/api/auth/login", json={
+        "email": email, "password": "StrongExpertPass123!", "role": "EXPERT"
+    })
+    assert login.status_code == 403
+
+
+def test_login_rejects_mismatched_selected_role(client):
+    email = f"farmer_{uuid.uuid4().hex[:8]}@example.com"
+    client.post("/api/auth/register", json={
+        "name": "Farmer User", "email": email,
+        "password": "StrongFarmerPass123!", "role": "FARMER"
+    })
+    response = client.post("/api/auth/login", json={
+        "email": email, "password": "StrongFarmerPass123!", "role": "ADMIN"
+    })
+    assert response.status_code == 403
 
 
 def test_scan_history_requires_authentication(client):

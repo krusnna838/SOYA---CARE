@@ -29,7 +29,7 @@ def close_db(exc=None):
         db.close()
 
 def init_db(app=None):
-    """Initialize database tables and seed baseline diseases and default admin if missing."""
+    """Initialize database tables and seed the baseline disease catalog."""
     from flask import current_app
     try:
         app_ctx = app or (current_app._get_current_object() if current_app else None)
@@ -155,33 +155,6 @@ def init_db(app=None):
         cur = conn.execute("SELECT COUNT(*) FROM diseases")
         if cur.fetchone()[0] == 0:
             seed_diseases(conn)
-
-        # Optional administrator bootstrap. Never ship a default password or hash.
-        # Set ADMIN_EMAIL and ADMIN_PASSWORD as private hosting environment variables,
-        # or provision an administrator with: python manage.py create-admin.
-        admin_email = os.getenv("ADMIN_EMAIL", "").strip().lower()
-        admin_name = os.getenv("ADMIN_NAME", "SoybeanCare Administrator").strip()
-        admin_password = os.getenv("ADMIN_PASSWORD", "")
-        if admin_email and admin_password:
-            if len(admin_password) < 12:
-                raise RuntimeError("ADMIN_PASSWORD must contain at least 12 characters.")
-            admin_password_hash = generate_password_hash(admin_password)
-            existing_admin = conn.execute(
-                "SELECT id FROM users WHERE LOWER(email) = ?", (admin_email,)
-            ).fetchone()
-            if existing_admin:
-                conn.execute(
-                    "UPDATE users SET name = ?, password_hash = ?, role = 'ADMIN' WHERE id = ?",
-                    (admin_name, admin_password_hash, existing_admin["id"])
-                )
-            else:
-                conn.execute(
-                    """INSERT INTO users (name, email, password_hash, role, created_at)
-                       VALUES (?, ?, ?, 'ADMIN', ?)""",
-                    (admin_name, admin_email, admin_password_hash, datetime.now(timezone.utc).isoformat())
-                )
-            conn.commit()
-            logger.info("Administrator bootstrap completed for configured account.")
 
 def seed_diseases(conn):
     diseases = [
