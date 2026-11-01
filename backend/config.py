@@ -49,3 +49,8 @@ class Config:
     
     GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
     APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID", "")
+
+    # Optional first-admin bootstrap. Keep these values private in Render.
+    ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "").strip().lower()
+    ADMIN_NAME = os.getenv("ADMIN_NAME", "SoybeanCare Administrator").strip()
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
