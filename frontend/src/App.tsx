@@ -196,6 +196,7 @@ export function App() {
             <ExpertDashboard
               user={user}
               scans={scans}
+              onReviewComplete={refreshScans}
             />
           ) : (
             <div className="max-w-md mx-auto my-20 p-8 glass-card rounded-3xl border border-slate-200 dark:border-slate-800 text-center space-y-4">
