@@ -49,6 +49,17 @@ def create_app(test_config=None):
     # Initialize JWT
     jwt = JWTManager(app)
 
+    @app.after_request
+    def add_security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=(self)"
+        if request.path.startswith("/api/auth"): response.headers["Cache-Control"] = "no-store"
+        if request.is_secure: response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+
     # Teardown DB connection
     app.teardown_appcontext(close_db)
 
@@ -1262,7 +1273,15 @@ def create_app(test_config=None):
         new_role = str(data.get("role", "")).strip().upper()
         if new_role not in {"FARMER", "EXPERT", "ADMIN"}:
             return jsonify({"error": "Invalid role specified."}), 400
-
+        if user_id == int(g.current_user["id"]) and new_role != "ADMIN":
+            return jsonify({"error": "You cannot remove your own administrator access."}), 400
+        target = get_db().execute("SELECT id, role FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not target:
+            return jsonify({"error": "User not found."}), 404
+        if str(target["role"]).upper() == "ADMIN" and new_role != "ADMIN":
+            count = get_db().execute("SELECT COUNT(*) FROM users WHERE UPPER(role) = 'ADMIN'").fetchone()[0]
+            if count <= 1:
+                return jsonify({"error": "The last administrator cannot be demoted."}), 409
         get_db().execute("UPDATE users SET role = ? WHERE id = ?", (new_role, user_id))
         get_db().commit()
         log_audit("admin_role_change", f"Role of user {user_id} changed to {new_role}", user_id=g.current_user["id"])
