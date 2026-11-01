@@ -136,7 +136,8 @@ export const api = {
   async getMe(): Promise<User | null> {
     const token = tokenStorage.get();
     if (!token || token === 'mock-jwt-token') {
-      return tokenStorage.getUser();
+      tokenStorage.remove();
+      return null;
     }
     try {
       const res = await fetchWithAuth(`${API_BASE_URL}/auth/me`);
@@ -147,10 +148,13 @@ export const api = {
           return data.user;
         }
       }
+      // Never trust a cached profile when the API rejects the session.
+      tokenStorage.remove();
+      return null;
     } catch (e) {
       console.warn('Could not verify session with backend:', e);
+      return null;
     }
-    return tokenStorage.getUser();
   },
 
   async updateProfile(profileData: any): Promise<User> {
@@ -179,60 +183,16 @@ export const api = {
     latitude?: number,
     longitude?: number
   ): Promise<{ success: boolean; scan?: DiseaseScan; [key: string]: any }> {
-    try {
-      const res = await fetchWithAuth(`${API_BASE_URL}/predict`, {
-        method: 'POST',
-        body: JSON.stringify({ imageBase64, location, latitude, longitude }),
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'AI prediction failed.');
-    } catch (e: any) {
-      if (e.message && e.message !== 'Failed to fetch') {
-        throw e;
-      }
-      console.warn('Backend API offline, processing scan with local demo model:', e);
-      // Fallback preview
-      const scan: DiseaseScan = {
-        id: `scan-${Math.floor(1000 + Math.random() * 9000)}`,
-        farmerId: 'u1',
-        farmerName: 'Rajesh Kumar',
-        imageUrl: imageBase64 || 'https://images.unsplash.com/photo-1592417817098-8f3d6eb1b7a5?auto=format&fit=crop&w=800&q=80',
-        predictedDisease: 'Septoria Brown Spot',
-        confidenceScore: 0.94,
-        severity: 'medium',
-        scannedAt: new Date().toISOString(),
-        location: location || 'Indore, MP (22.7196° N, 75.8577° E)',
-        status: 'reviewed',
-        diseaseDetails: {
-          id: 'd1',
-          name: 'Septoria Brown Spot',
-          scientificName: 'Septoria glycines',
-          severity: 'medium',
-          affectedStage: 'V3 to R6 (Vegetative to Pod Fill)',
-          symptoms: 'Small brown irregular spots on lower leaves with yellowing and early leaf drop.',
-          causes: 'Fungal pathogen surviving in crop residue, promoted by warm humid weather.',
-          treatment: {
-            chemical: 'Apply Quadris (Azoxystrobin) or Headline EC at early onset.',
-            organic: 'Apply Copper Octanoate organic soap or Neem oil foliar spray.'
-          },
-          recommendedPesticides: [
-            { name: 'Headline EC (Pyraclostrobin)', dosage: '6 - 12 fl oz/acre', timing: 'R1 to R3 Growth Stage' },
-            { name: 'Quadris (Azoxystrobin)', dosage: '6.0 - 15.5 fl oz/acre', timing: 'At early disease onset' }
-          ],
-          organicSolution: 'Foliar application of Bacillus subtilis strain QST 713.',
-          preventiveTips: [
-            'Rotate fields with non-host crops like Corn for 2 years.',
-            'Utilize pathogen-free certified seeds.',
-            'Ensure good field canopy airflow.'
-          ],
-          images: ['https://images.unsplash.com/photo-1592417817098-8f3d6eb1b7a5?auto=format&fit=crop&w=800&q=80']
-        }
-      };
-      return { success: true, scan };
+    const res = await fetchWithAuth(`${API_BASE_URL}/predict`, {
+      method: 'POST',
+      body: JSON.stringify({ imageBase64, location, latitude, longitude }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || `AI prediction failed (HTTP ${res.status}).`);
     }
+    // Never fabricate a disease result when the backend/model is unavailable.
+    return data;
   },
 
   // -------------------------------------------------------------
@@ -360,31 +320,14 @@ export const api = {
   },
 
   async createTicket(ticket: any): Promise<SupportTicket> {
-    try {
-      const res = await fetchWithAuth(`${API_BASE_URL}/tickets`, {
-        method: 'POST',
-        body: JSON.stringify(ticket)
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.ticket;
-      }
-    } catch (e) {
-      console.warn('Backend ticket creation failed:', e);
-    }
-    return {
-      id: `TKT-${Math.floor(1000 + Math.random() * 9000)}`,
-      farmerId: 'u1',
-      farmerName: ticket.farmerName || 'Soybean Farmer',
-      subject: ticket.subject,
-      category: ticket.category || 'General Consultation',
-      priority: ticket.priority || 'Medium',
-      status: 'Open',
-      createdAt: new Date().toISOString(),
-      messages: [
-        { sender: ticket.farmerName || 'Soybean Farmer', role: 'FARMER', timestamp: new Date().toISOString(), text: ticket.message }
-      ]
-    };
+    const res = await fetchWithAuth(`${API_BASE_URL}/tickets`, {
+      method: 'POST',
+      body: JSON.stringify(ticket)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not create support ticket.');
+    return data.ticket;
+
   },
 
   async replyTicket(ticketId: string, text: string): Promise<any> {
@@ -437,7 +380,7 @@ export const api = {
   // -------------------------------------------------------------
   // WEATHER & GOVERNMENT SCHEMES
   // -------------------------------------------------------------
-  async getWeather(lat?: number, lon?: number): Promise<WeatherData> {
+  async getWeather(lat?: number, lon?: number): Promise<WeatherData | null> {
     try {
       const q = (lat !== undefined && lon !== undefined) ? `?lat=${lat}&lon=${lon}` : '';
       const res = await fetchWithAuth(`${API_BASE_URL}/weather${q}`);
@@ -445,16 +388,8 @@ export const api = {
         const data = await res.json();
         return data.weather;
       }
-    } catch (e) {}
-    return {
-      temperatureC: 28.4,
-      humidityPercent: 74,
-      windSpeedKmh: 14.2,
-      condition: 'Partly Cloudy with Humidity',
-      rainProbabilityPercent: 35,
-      location: 'Madhya Pradesh Soybean Zone',
-      sprayAdvisory: 'Favorable for morning spraying until 10:30 AM before wind speed increases.'
-    };
+    } catch (e) { console.warn('Weather service unavailable:', e); }
+    return null;
   },
 
   async getSchemes(state?: string): Promise<GovtScheme[]> {
@@ -463,29 +398,10 @@ export const api = {
       const res = await fetchWithAuth(`${API_BASE_URL}/schemes${q}`);
       if (res.ok) {
         const data = await res.json();
-        return data.schemes;
+        return Array.isArray(data.schemes) ? data.schemes : [];
       }
-    } catch (e) {}
-    return [
-      {
-        id: 's-pmfby',
-        title: 'Pradhan Mantri Fasal Bima Yojana (PMFBY)',
-        state: 'All India (National)',
-        description: 'Comprehensive risk insurance coverage for soybean farmers suffering crop loss or damage.',
-        subsidy: 'Farmers pay only 2% premium rate for Kharif soybean.',
-        link: 'https://pmfby.gov.in',
-        officialUrl: 'https://pmfby.gov.in/'
-      },
-      {
-        id: 's-smam',
-        title: 'Sub-Mission on Agricultural Mechanization (SMAM)',
-        state: 'All India (National)',
-        description: 'Subsidies for AI precision sprayers, boom sprayers, and electronic soil testing meters.',
-        subsidy: '40% to 50% subsidy for individual farmers.',
-        link: 'https://agrimachinery.nic.in',
-        officialUrl: 'https://agrimachinery.nic.in/'
-      }
-    ];
+    } catch (e) { console.warn('Government schemes service unavailable:', e); }
+    return [];
   },
 
   // -------------------------------------------------------------

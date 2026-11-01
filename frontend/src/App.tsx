@@ -93,6 +93,18 @@ export function App() {
     loadInitialData();
   }, []);
 
+  // Refresh authenticated scan history whenever a role dashboard is opened.
+  useEffect(() => {
+    if (user && ['farmer-dashboard', 'expert-dashboard', 'admin-dashboard'].includes(currentTab)) {
+      api.getScans().then(setScans).catch((err) => console.warn('Could not refresh scan history:', err));
+    }
+  }, [currentTab, user]);
+
+  const refreshScans = async () => {
+    const latest = await api.getScans();
+    setScans(latest);
+  };
+
   // Refresh tickets dynamically on navigating to support or admin tab
   useEffect(() => {
     if (currentTab === 'support' || currentTab === 'admin-dashboard') {
@@ -144,6 +156,7 @@ export function App() {
             user={user}
             onOpenReportModal={handleOpenPdfReport}
             onOpenAuth={() => setAuthModalOpen(true)}
+            onScanComplete={refreshScans}
           />
         )}
 
@@ -164,6 +177,7 @@ export function App() {
               onOpenReportModal={handleOpenPdfReport}
               onNavigateTab={setCurrentTab}
               onOpenProfile={() => setProfileModalOpen(true)}
+              onRefreshScans={refreshScans}
             />
           ) : (
             <div className="max-w-md mx-auto my-20 p-8 glass-card rounded-3xl border border-slate-200 dark:border-slate-800 text-center space-y-4">
@@ -253,6 +267,7 @@ export function App() {
         onClose={() => setAuthModalOpen(false)}
         onLoginSuccess={(loggedInUser) => {
           setUser(loggedInUser);
+          api.getScans().then(setScans).catch((err) => console.warn('Could not load account scan history:', err));
           if (loggedInUser.role === 'ADMIN') setCurrentTab('admin-dashboard');
           else if (loggedInUser.role === 'EXPERT') setCurrentTab('expert-dashboard');
           else setCurrentTab('farmer-dashboard');

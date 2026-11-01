@@ -19,9 +19,7 @@ export const CustomerCarePage: React.FC<CustomerCarePageProps> = ({ user, ticket
   const [farmerLocation, setFarmerLocation] = useState(user?.state ? `${user.village ? user.village + ', ' : ''}${user.state}` : '');
   const [creating, setCreating] = useState(false);
 
-  const [chatLog, setChatLog] = useState([
-    { sender: 'SoySmart AI Support Bot', text: 'Hello! How can I assist you with your soybean crop today?', time: '10:00 AM' }
-  ]);
+  const [chatLog, setChatLog] = useState<{sender:string;text:string;time:string}[]>([]);
   const [chatInput, setChatInput] = useState('');
 
   const handleRaiseTicket = async (e: React.FormEvent) => {
@@ -56,23 +54,8 @@ export const CustomerCarePage: React.FC<CustomerCarePageProps> = ({ user, ticket
 
   const handleSendLiveChat = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim()) return;
-    const userMsg = chatInput.trim();
-    setChatLog(prev => [...prev, { sender: 'You', text: userMsg, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+    // No fake AI response: this assistant is not connected to a live model/API.
     setChatInput('');
-
-    setTimeout(() => {
-      let botReply = "Thank you for reaching out! Our agricultural advisory team has logged this request.";
-      const lower = userMsg.toLowerCase();
-      if (lower.includes('spray') || lower.includes('rain')) {
-        botReply = "Rainfastness rule: Do not spray fungicide if rainfall is expected within 3-4 hours. Ensure morning dew has dried before applying systemic fungicides.";
-      } else if (lower.includes('rust') || lower.includes('pustule')) {
-        botReply = "Asian Soybean Rust can defoliate crops rapidly under 80%+ humidity. Submit a leaf photo in the Leaf Scanner for instant verification and ICAR recommended triazole fungicides.";
-      } else if (lower.includes('dose') || lower.includes('fertilizer') || lower.includes('npk')) {
-        botReply = "Soybeans fix their own atmospheric nitrogen through rhizobium nodules. A standard starter dose of 20:60:40 kg/ha N:P:K is typically recommended per ICAR guidelines.";
-      }
-      setChatLog(prev => [...prev, { sender: 'SoySmart AI Support Bot', text: botReply, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
-    }, 800);
   };
 
   return (
@@ -88,7 +71,7 @@ export const CustomerCarePage: React.FC<CustomerCarePageProps> = ({ user, ticket
           Farmer Assistance &amp; Query Center
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-          Submit field issues directly to certified agronomists, track expert responses, or consult our 24/7 crop advisory bot.
+          Submit field issues to the support team and track responses to real support tickets.
         </p>
       </div>
 
@@ -102,8 +85,8 @@ export const CustomerCarePage: React.FC<CustomerCarePageProps> = ({ user, ticket
               <Bot className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Instant Advisory Assistant</h3>
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">ICAR-Aligned Rule Engine Active</p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Automated Assistant</h3>
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">Not connected — use support tickets</p>
             </div>
           </div>
 

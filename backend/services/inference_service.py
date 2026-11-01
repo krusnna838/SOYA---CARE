@@ -172,12 +172,14 @@ def run_disease_inference(image_buffer: io.BytesIO) -> dict:
         except Exception as e:
             logger.warning(f"Roboflow inference API call failed: {e}. Utilizing calibrated fallback classifier.")
 
-    # 2. Offline / Local Calibrated Fallback
-    fallback_preds = local_botanical_classifier(image_buffer)
+    # Do not fabricate disease labels or confidence scores when the trained
+    # hosted model is unavailable. Return an explicit inconclusive result.
+    logger.error("Disease inference unavailable: configure a valid Roboflow API key and model ID.")
     return {
-        "success": True,
-        "provider": "local_calibrated_botanical",
-        "model_id": "soybeancare-botanical-v2",
-        "predictions": fallback_preds,
-        "top_prediction": fallback_preds[0] if fallback_preds else None
+        "success": False,
+        "provider": "unavailable",
+        "model_id": Config.ROBOFLOW_MODEL_ID,
+        "predictions": [],
+        "top_prediction": None,
+        "error": "Disease classifier is not configured or is temporarily unavailable."
     }

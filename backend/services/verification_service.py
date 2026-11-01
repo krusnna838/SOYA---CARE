@@ -52,11 +52,12 @@ def evaluate_image_foliage_heuristics(image_buffer: io.BytesIO) -> dict:
                 "provider": "local_heuristic"
             }
 
-        # Foliage detected locally, but species cannot be guaranteed without vision model
+        # Color heuristics cannot distinguish soybean from other plant species.
+        # Never claim species verification without a vision model.
         return {
-            "status": "SOYBEAN_LEAF",
-            "reason": "Plant foliage confirmed via local visual analysis. (Cloud vision API offline; proceed with agronomic caution).",
-            "confidence": 0.70,
+            "status": "UNCERTAIN",
+            "reason": "Foliage-like colors were detected, but soybean species cannot be verified without the configured vision model.",
+            "confidence": 0.50,
             "provider": "local_heuristic"
         }
 

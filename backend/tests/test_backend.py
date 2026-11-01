@@ -10,7 +10,8 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app import create_app
-from database import init_db
+from database import init_db, get_db
+from werkzeug.security import generate_password_hash
 
 @pytest.fixture
 def client(tmp_path):
@@ -113,14 +114,15 @@ def test_admin_rbac_protection(client):
     f_login = client.post("/api/auth/login", json={"email": joe_email, "password": "Password123!"})
     farmer_token = f_login.get_json()["token"]
 
-    # Register Admin
+    # Provision an administrator through the database, not public registration.
     admin_email = f"admin_{uuid.uuid4().hex[:6]}@example.com"
-    client.post("/api/auth/register", json={
-        "name": "Admin Chief",
-        "email": admin_email,
-        "password": "Password123!",
-        "role": "ADMIN"
-    })
+    with client.application.app_context():
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO users (name, email, password_hash, role, created_at) VALUES (?, ?, ?, 'ADMIN', ?)",
+            ("Admin Chief", admin_email, generate_password_hash("Password123!"), "2026-01-01T00:00:00+00:00")
+        )
+        conn.commit()
     a_login = client.post("/api/auth/login", json={"email": admin_email, "password": "Password123!"})
     admin_token = a_login.get_json()["token"]
 
@@ -132,6 +134,20 @@ def test_admin_rbac_protection(client):
     ok_resp = client.get("/api/admin/summary", headers={"Authorization": f"Bearer {admin_token}"})
     assert ok_resp.status_code == 200
     assert "users" in ok_resp.get_json()
+
+
+def test_public_registration_cannot_assign_privileged_role(client):
+    email = f"role_{uuid.uuid4().hex[:8]}@example.com"
+    response = client.post("/api/auth/register", json={
+        "name": "Untrusted User", "email": email, "password": "Password123!", "role": "ADMIN"
+    })
+    assert response.status_code == 201
+    assert response.get_json()["user"]["role"] == "FARMER"
+
+
+def test_scan_history_requires_authentication(client):
+    response = client.get("/api/scans")
+    assert response.status_code == 401
 
 # -------------------------------------------------------------
 # 3. PREDICTION & IMAGE PIPELINE TESTS
@@ -186,3 +202,29 @@ def test_pdf_report_download(client):
     assert pdf_resp.status_code == 200
     assert pdf_resp.mimetype == "application/pdf"
     assert len(pdf_resp.data) > 500
+
+
+# -------------------------------------------------------------
+# 7. DIAGNOSIS DECISION SAFETY TESTS
+# -------------------------------------------------------------
+def test_uncertain_leaf_verification_never_returns_disease_prediction():
+    """A green-looking leaf is not enough to claim soybean species identity."""
+    from services.decision_service import evaluate_final_decision
+
+    result = evaluate_final_decision(
+        {
+            "status": "UNCERTAIN",
+            "reason": "Foliage-like colors detected; species not verified.",
+            "confidence": 0.50,
+            "provider": "local_heuristic",
+        },
+        {
+            "success": True,
+            "predictions": [{"class": "Asian Soybean Rust", "confidence": 0.99}],
+        },
+    )
+
+    assert result["detected"] is False
+    assert result["decision"] == "UNCERTAIN"
+    assert result["disease"] is None
+    assert result["predictions"] == []
