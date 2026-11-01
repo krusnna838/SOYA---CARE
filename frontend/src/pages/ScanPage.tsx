@@ -221,7 +221,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
 
       if (response.scan) {
         setScanResult(response.scan);
-        await onScanComplete?.();
+        if (user) await onScanComplete?.();
       } else if (response.detected === false) {
         // The backend rejected the image during soybean-leaf verification.
         setScanResult(null);
@@ -588,6 +588,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
               </div>
 
               {/* Action Buttons */}
+              {user && rawApiResponse?.report_id && (
               <div className="pt-2 flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={downloadReportPdf}
@@ -606,6 +607,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
                   <span>{expertRequested ? "Review Requested Γ£ô" : requestingExpert ? "Logging Request..." : "Request Agronomist Review"}</span>
                 </button>
               </div>
+              )}
 
             </div>
           ) : (
