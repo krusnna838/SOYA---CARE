@@ -135,7 +135,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {mode === 'login' 
               ? 'Access leaf diagnostic scans, treatment protocols & farm history.' 
-              : 'Join soybean cultivators accessing verified crop protection.'}
+              : mode === 'register' ? 'Create a farmer account to access crop protection tools.' : 'Request password reset assistance.'}
           </p>
         </div>
 
@@ -150,7 +150,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
           </button>
           <button
             type="button"
-            onClick={() => { setMode('register'); setError(''); }}
+            onClick={() => { setMode('register'); setRole('FARMER'); setError(''); }}
             className={`py-2 rounded-xl transition-all ${mode === 'register' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
             Create Account
@@ -261,26 +261,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Account Type</label>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setRole('FARMER')}
-                    className={`py-2 px-3 rounded-xl border text-left font-medium transition-colors ${role === 'FARMER' ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'}`}
-                  >
-                    🌱 Soybean Farmer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole('EXPERT')}
-                    className={`py-2 px-3 rounded-xl border text-left font-medium transition-colors ${role === 'EXPERT' ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'}`}
-                  >
-                    🔬 Agronomist
-                  </button>
-                </div>
+              <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-[11px] text-emerald-800 dark:text-emerald-300">
+                Farmer registration is open. Expert accounts are created or approved by the administrator; please sign in after your account is approved.
               </div>
             </>
+          )}
+
+          {mode === 'login' && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Sign in as</label>
+              <div className="grid grid-cols-3 gap-2 text-[11px]">
+                {([
+                  ['FARMER', '🌱 Farmer'],
+                  ['EXPERT', '🔬 Expert'],
+                  ['ADMIN', '🛡️ Admin']
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setRole(value)}
+                    className={`py-2 px-2 rounded-xl border font-semibold transition-colors ${role === value ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           <div>
