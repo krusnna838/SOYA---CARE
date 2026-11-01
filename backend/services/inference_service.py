@@ -172,14 +172,73 @@ def run_disease_inference(image_buffer: io.BytesIO) -> dict:
         except Exception as e:
             logger.warning(f"Roboflow inference API call failed: {e}. Utilizing calibrated fallback classifier.")
 
-    # Do not fabricate disease labels or confidence scores when the trained
-    # hosted model is unavailable. Return an explicit inconclusive result.
-    logger.error("Disease inference unavailable: configure a valid Roboflow API key and model ID.")
+    # Secondary AI classifier: use the configured Groq vision model when
+    # Roboflow is not configured or its hosted endpoint fails.
+    if Config.GROQ_API_KEY and Config.GROQ_API_KEY.strip():
+        try:
+            import base64
+            import json
+            from groq import Groq
+
+            image_buffer.seek(0)
+            image_b64 = base64.b64encode(image_buffer.getvalue()).decode("ascii")
+            client = Groq(api_key=Config.GROQ_API_KEY, timeout=30.0)
+            response = client.chat.completions.create(
+                model=Config.GROQ_VISION_MODEL,
+                temperature=0.0,
+                max_tokens=350,
+                response_format={"type": "json_object"},
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are an agricultural computer-vision assistant. Analyze the provided soybean leaf photo "
+                            "and classify visible foliar condition. Return JSON only with keys: "
+                            '{"class":"one of Healthy Soybean Leaf, Septoria Brown Spot, Asian Soybean Rust, '
+                            'Frogeye Leaf Spot, Bacterial Blight, Downy Mildew, Soybean Mosaic Virus, Inconclusive", '
+                            '"confidence":number from 0 to 1, "reason":"short visual explanation"}. '
+                            "Use Inconclusive if the image is blurry, not a leaf, or symptoms are not distinguishable. "
+                            "Do not invent symptoms that are not visible."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "Classify the visible condition on this soybean leaf image."},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+                        ]
+                    }
+                ]
+            )
+            parsed = json.loads(response.choices[0].message.content or "{}")
+            raw_label = str(parsed.get("class", "Inconclusive")).strip()
+            label = normalize_label(raw_label)
+            confidence = max(0.0, min(1.0, float(parsed.get("confidence", 0.0))))
+            if label.lower() not in {"inconclusive", "unknown", "other"} and confidence > 0:
+                prediction = {
+                    "class": label,
+                    "raw_label": raw_label,
+                    "confidence": round(confidence, 4),
+                    "confidence_percent": round(confidence * 100, 2),
+                    "reason": str(parsed.get("reason", ""))[:400]
+                }
+                return {
+                    "success": True,
+                    "provider": "groq_vision_classifier",
+                    "model_id": Config.GROQ_VISION_MODEL,
+                    "predictions": [prediction],
+                    "top_prediction": prediction
+                }
+            logger.warning("Groq vision classifier returned an inconclusive result.")
+        except Exception as e:
+            logger.exception("Groq vision disease classification failed: %s", e)
+
+    logger.error("Disease inference unavailable: configure a valid Roboflow or Groq vision API key.")
     return {
         "success": False,
         "provider": "unavailable",
         "model_id": Config.ROBOFLOW_MODEL_ID,
         "predictions": [],
         "top_prediction": None,
-        "error": "Disease classifier is not configured or is temporarily unavailable."
+        "error": "No AI disease classifier is configured or the configured AI providers are temporarily unavailable."
     }
