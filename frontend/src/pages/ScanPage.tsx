@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { jsPDF } from 'jspdf';
 import {
   Camera, Upload, Sparkles, RefreshCw, FileText, CheckCircle2,
   ShieldAlert, Bug, Droplet, AlertTriangle, UserCheck, ShieldCheck,
@@ -241,9 +242,138 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
   const downloadReportPdf = async () => {
     if (!scanResult) return;
     try {
-      await api.downloadReportPdf(scanResult.id);
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 16;
+      const contentWidth = pageWidth - margin * 2;
+      let y = 18;
+
+      const addPageIfNeeded = (needed: number) => {
+        if (y + needed > pageHeight - 16) {
+          pdf.addPage();
+          y = 18;
+        }
+      };
+      const addSection = (title: string, value: unknown) => {
+        const text = Array.isArray(value) ? value.filter(Boolean).map((v) => String(v)) : [String(value || '')];
+        if (!text.some((line) => line.trim())) return;
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(11);
+        addPageIfNeeded(12);
+        pdf.setTextColor(5, 120, 80);
+        pdf.text(title, margin, y);
+        y += 6;
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(9);
+        pdf.setTextColor(45, 55, 72);
+        text.forEach((line) => {
+          const wrapped = pdf.splitTextToSize(line, contentWidth - 3);
+          const height = wrapped.length * 4.5 + 2;
+          addPageIfNeeded(height);
+          pdf.text(wrapped, margin + 2, y);
+          y += height;
+        });
+        y += 3;
+      };
+
+      pdf.setFillColor(5, 95, 70);
+      pdf.rect(0, 0, pageWidth, 34, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(20);
+      pdf.text('SoybeanCare AI', margin, 16);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.text('SOYBEAN LEAF HEALTH & FIELD ADVISORY REPORT', margin, 24);
+      pdf.setFontSize(8);
+      pdf.text('PRELIMINARY AI DECISION SUPPORT', pageWidth - margin, 16, { align: 'right' });
+      y = 43;
+
+      pdf.setTextColor(35, 45, 55);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(13);
+      pdf.text('Field diagnosis summary', margin, y);
+      y += 7;
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.text('Report: ' + scanResult.id, margin, y);
+      pdf.text('Date: ' + new Date(scanResult.scannedAt).toLocaleString(), pageWidth - margin, y, { align: 'right' });
+      y += 6;
+      pdf.text('Farmer: ' + (scanResult.farmerName || 'Farmer'), margin, y);
+      pdf.text('Location: ' + (scanResult.location || 'Not provided'), pageWidth - margin, y, { align: 'right', maxWidth: 95 });
+      y += 8;
+
+      if (selectedImage) {
+        try {
+          const image = new Image();
+          image.crossOrigin = 'anonymous';
+          const imageData = await new Promise<string>((resolve, reject) => {
+            image.onload = () => {
+              const canvas = document.createElement('canvas');
+              const maxWidth = 1200;
+              const scale = Math.min(1, maxWidth / image.naturalWidth);
+              canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+              canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+              const context = canvas.getContext('2d');
+              if (!context) return reject(new Error('Image conversion unavailable'));
+              context.drawImage(image, 0, 0, canvas.width, canvas.height);
+              resolve(canvas.toDataURL('image/jpeg', 0.9));
+            };
+            image.onerror = () => reject(new Error('Image could not be embedded'));
+            image.src = selectedImage;
+          });
+          const ratio = image.naturalWidth / image.naturalHeight;
+          const imageWidth = Math.min(82, contentWidth);
+          const imageHeight = imageWidth / ratio;
+          addPageIfNeeded(Math.min(imageHeight, 65) + 8);
+          pdf.addImage(imageData, 'JPEG', margin, y, imageWidth, Math.min(imageHeight, 65));
+          pdf.setFontSize(8);
+          pdf.setTextColor(110, 120, 130);
+          pdf.text('Uploaded / captured leaf photograph', margin, y + Math.min(imageHeight, 65) + 4);
+          y += Math.min(imageHeight, 65) + 11;
+        } catch (imageError) {
+          console.warn('Could not embed leaf photo in PDF:', imageError);
+          addSection('Leaf photograph', 'The original photo could not be embedded in this browser-generated copy.');
+        }
+      }
+
+      pdf.setFillColor(240, 253, 244);
+      pdf.roundedRect(margin, y, contentWidth, 25, 3, 3, 'F');
+      pdf.setTextColor(5, 95, 70);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(8);
+      pdf.text('AI SCREENING RESULT', margin + 5, y + 6);
+      pdf.setFontSize(14);
+      pdf.text(pdf.splitTextToSize(scanResult.predictedDisease || 'Inconclusive', contentWidth - 10), margin + 5, y + 14);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.text('Model confidence: ' + (Number(scanResult.confidenceScore || 0) * 100).toFixed(1) + '%   |   Severity: ' + (scanResult.severity || 'Not assessed').toUpperCase(), margin + 5, y + 21);
+      y += 33;
+
+      addSection('Symptoms & field observations', scanResult.diseaseDetails?.symptoms || rawApiResponse?.explanation || rawApiResponse?.ai_explanation);
+      addSection('Possible causes', rawApiResponse?.causes || scanResult.diseaseDetails?.causes);
+      addSection('Recommended field actions', rawApiResponse?.actions || scanResult.diseaseDetails?.preventiveTips);
+      addSection('Treatment guidance — chemical (confirm locally before use)', scanResult.diseaseDetails?.treatment?.chemical);
+      addSection('Organic / biological option', scanResult.diseaseDetails?.treatment?.organic || scanResult.diseaseDetails?.organicSolution);
+      addSection('Prevention & monitoring', scanResult.diseaseDetails?.preventiveTips);
+      addSection('Soil & fertilizer advisory', rawApiResponse?.fertilizer_note || 'Use a soil-test-based nutrient plan. Do not apply fertilizer solely from a leaf-photo result.');
+      addSection('Important note', 'This is preliminary AI decision support, not a certified diagnosis. Symptoms may resemble nutrient, herbicide, pest, or environmental injury. Confirm with a qualified agronomist or local Krishi Vigyan Kendra before applying crop-protection chemicals.');
+
+      const pages = pdf.getNumberOfPages();
+      for (let page = 1; page <= pages; page += 1) {
+        pdf.setPage(page);
+        pdf.setDrawColor(210, 220, 215);
+        pdf.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
+        pdf.setFontSize(8);
+        pdf.setTextColor(120, 130, 135);
+        pdf.text('SoybeanCare AI • Preliminary field advisory', margin, pageHeight - 7);
+        pdf.text('Page ' + page + ' of ' + pages, pageWidth - margin, pageHeight - 7, { align: 'right' });
+      }
+      pdf.save('SoybeanCare-Field-Report-' + String(scanResult.id).replace(/[^a-zA-Z0-9-]/g, '') + '.pdf');
     } catch (e: any) {
-      alert("PDF download failed: " + e.message);
+      console.error('PDF generation failed:', e);
+      alert('PDF download failed: ' + (e?.message || 'Please try again.'));
     }
   };
 
@@ -540,10 +670,29 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
                 </p>
               </div>
 
-              {/* ICAR Explanation */}
-              <div className="p-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                <p className="font-bold text-slate-900 dark:text-slate-100 mb-1">Agronomic Interpretation:</p>
-                <p>{rawApiResponse?.ai_explanation || rawApiResponse?.explanation || scanResult.diseaseDetails?.causes}</p>
+              {/* Agronomic interpretation */}
+              <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                <p className="font-bold text-slate-900 dark:text-slate-100 mb-1">Agronomic Interpretation</p>
+                <p>{rawApiResponse?.ai_explanation || rawApiResponse?.explanation || scanResult.diseaseDetails?.causes || 'Review the visible symptoms with a local crop specialist.'}</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-2">
+                  <p className="text-xs font-extrabold text-amber-600 dark:text-amber-400">POSSIBLE CAUSES</p>
+                  <ul className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                    {(Array.isArray(rawApiResponse?.causes) ? rawApiResponse.causes : [scanResult.diseaseDetails?.causes || 'Cause assessment requires field confirmation.']).filter(Boolean).map((cause: string, index: number) => (
+                      <li key={index} className="flex gap-2"><span className="text-amber-500">•</span><span>{cause}</span></li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-2">
+                  <p className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">RECOMMENDED FIELD ACTIONS</p>
+                  <ul className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                    {(Array.isArray(rawApiResponse?.actions) ? rawApiResponse.actions : (scanResult.diseaseDetails?.preventiveTips || [])).filter(Boolean).map((action: string, index: number) => (
+                      <li key={index} className="flex gap-2"><span className="text-emerald-500">✓</span><span>{action}</span></li>
+                    ))}
+                  </ul>
+                </div>
               </div>
 
               {/* Dual Treatment Protocol */}
@@ -587,27 +736,27 @@ export const ScanPage: React.FC<ScanPageProps> = ({ user, onOpenReportModal, onO
                 <span><b>Disclaimer:</b> Preliminary AI prediction for decision support. Confirm symptoms with your local agricultural officer before applying chemical treatments.</span>
               </div>
 
-              {/* Action Buttons */}
-              {user && rawApiResponse?.report_id && (
-              <div className="pt-2 flex flex-col sm:flex-row gap-3">
+              {/* Downloadable field report is available for signed-in and guest scans. */}
+              <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   onClick={downloadReportPdf}
-                  className="flex-1 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center space-x-2"
+                  className="py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition-all flex items-center justify-center space-x-2"
                 >
                   <FileText className="w-4 h-4" />
-                  <span>Download Official PDF Report</span>
+                  <span>Download Field Report (PDF)</span>
                 </button>
 
-                <button
-                  onClick={handleRequestExpert}
-                  disabled={requestingExpert || expertRequested}
-                  className="flex-1 py-3.5 rounded-xl glass-card text-slate-800 dark:text-slate-200 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-800 transition-all border border-slate-300 dark:border-slate-700 flex items-center justify-center space-x-2 disabled:opacity-60"
-                >
-                  <UserCheck className="w-4 h-4 text-emerald-500" />
-                  <span>{expertRequested ? "Review Requested Γ£ô" : requestingExpert ? "Logging Request..." : "Request Agronomist Review"}</span>
-                </button>
+                {user && rawApiResponse?.report_id && (
+                  <button
+                    onClick={handleRequestExpert}
+                    disabled={requestingExpert || expertRequested}
+                    className="py-3.5 rounded-xl glass-card text-slate-800 dark:text-slate-200 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-800 transition-all border border-slate-300 dark:border-slate-700 flex items-center justify-center space-x-2 disabled:opacity-60"
+                  >
+                    <UserCheck className="w-4 h-4 text-emerald-500" />
+                    <span>{expertRequested ? "Review Requested" : requestingExpert ? "Logging Request..." : "Request Agronomist Review"}</span>
+                  </button>
+                )}
               </div>
-              )}
 
             </div>
           ) : (
